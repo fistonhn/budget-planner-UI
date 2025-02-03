@@ -1,1 +1,1 @@
-export const BASE_URL = "https://budget-planner-backend-git-main-fistonhns-projects.vercel.app/api/v1";
+export const BASE_URL = "https://budget-planner-backend-newww.vercel.app/api/v1";
