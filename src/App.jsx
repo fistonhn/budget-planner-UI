@@ -11,6 +11,8 @@ import UpdateCategory from "./components/Category/UpdateCategory";
 import TransactionForm from "./components/Transactions/TransactionForm";
 import Dashboard from "./components/Users/Dashboard";
 import UserProfile from "./components/Users/UserProfile";
+import Budget from "./components/Users/Budget";
+
 import AuthRoute from "./components/Auth/AuthRoute";
 
 function App() {
@@ -70,6 +72,14 @@ function App() {
           element={
             <AuthRoute>
               <UserProfile />
+            </AuthRoute>
+          }
+        />
+        <Route
+          path="/budget"
+          element={
+            <AuthRoute>
+              <Budget />
             </AuthRoute>
           }
         />

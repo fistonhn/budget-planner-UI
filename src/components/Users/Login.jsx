@@ -53,7 +53,7 @@ const LoginForm = () => {
   useEffect(() => {
     setTimeout(() => {
       if (isSuccess) {
-        navigate("/profile");
+        navigate("/dashboard");
       }
     }, 3000);
   }, [isPending, isError, error, isSuccess]);
