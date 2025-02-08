@@ -1,208 +1,614 @@
-import React, { useEffect } from "react";
-import { useFormik } from "formik";
-import { useNavigate } from "react-router-dom";
-import * as Yup from "yup";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  FaDollarSign,
-  FaCalendarAlt,
-  FaRegCommentDots,
-  FaWallet,
-} from "react-icons/fa";
-import { listCategoriesAPI } from "../../services/category/categoryService";
-import { addTransactionAPI } from "../../services/transactions/transactionService";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { FaTrash, FaEdit } from "react-icons/fa";
+import { BASE_URL } from "../../utils/url";
+import { getUserFromStorage } from "../../utils/getUserFromStorage";
 import AlertMessage from "../Alert/AlertMessage";
 
-const validationSchema = Yup.object({
-  type: Yup.string()
-    .required("Transaction type is required")
-    .oneOf(["income", "expense"]),
-  amount: Yup.number()
-    .required("Amount is required")
-    .positive("Amount must be positive"),
-  category: Yup.string().required("Category is required"),
-  date: Yup.date().required("Date is required"),
-  description: Yup.string(),
-});
+const token = getUserFromStorage();
 
-const TransactionForm = () => {
-  //Navigate
-  const navigate = useNavigate();
+const CreateTransaction = () => {
 
-  // Mutation
-  const {
-    mutateAsync,
-    isPending,
-    isError: isAddTranErr,
-    error: transErr,
-    isSuccess,
-  } = useMutation({
-    mutationFn: addTransactionAPI,
-    mutationKey: ["add-transaction"],
-  });
-  //fetching
-  const { data, isError, isLoading, isFetched, error, refetch } = useQuery({
-    queryFn: listCategoriesAPI,
-    queryKey: ["list-categories"],
-  });
+  const [type, setType] = useState("");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [category, setCategory] = useState("");
+  const [date, setDate] = useState("");
+  const [description, setDescription] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [categories, setCategories] = useState([]);
 
-  const formik = useFormik({
-    initialValues: {
-      type: "",
-      amount: "",
-      category: "",
-      date: "",
-      description: "",
-    },
-    validationSchema,
-    onSubmit: (values) => {
-      mutateAsync(values)
-        .then((data) => {
-          console.log(data);
-        })
-        .catch((e) => console.log(e));
-    },
-  });
+  const [projects, setProjects] = useState([]);
+  const [transactionData, setTransactionData] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchProjectData();
+    fetchTransactionData();
+    fetchCategories();
+  }, []);
+
+  const fetchTransactionData = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/transactions/lists`, 
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setTransactionData(response.data);
+      console.log('Transactions:', response.data);
+    } catch (err) {
+      setError("Failed to fetch data");
+      console.error("Error fetching data:", err);
+    }
+  };
+
+  const fetchProjectData = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/budget/lists`, 
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setProjects(response.data);
+    } catch (err) {
+      setError("Failed to fetch data");
+      console.error("Error fetching data:", err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/categories/lists`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories(response.data);
+    } catch (err) {
+      console.error("Error fetching categories", err);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate all fields
+    if (!type || !amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !vendor
+    ) {
+      setError("All fields are required!");
+      return;
+    }
+
+    // Prepare data for submission
+    const transactionData = {
+      type,
+      amount,
+      currency,
+      category,
+      date,
+      description,
+      projectName,
+      quantity,
+      unit,
+      paymentMethod,
+      vendor,
+    };
+
+    try {
+      setIsLoading(true);
+      await axios.post(`${BASE_URL}/transactions/create`, transactionData,
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage("Transaction recorded successfully");
+
+      setTimeout(() => {
+        setIsSuccess(false); 
+        resetForm();
+     }, 3000);
+
+      // setShowModal(false);
+      
+    } catch (error) {
+      setIsLoading(false);
+      setErrorMessage("Category name already exists");
+      setIsError(true);
+
+      setTimeout(() => {
+        setIsError(false);
+
+      }, 3000);
+      console.error("There was an error creating the transaction:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      setIsLoading(true);
+
+        await axios.delete(`${BASE_URL}/transactions/delete/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage("Transaction deleted successfully");
+
+
+      setTimeout(() => {
+        setIsSuccess(false); 
+     }, 3000);
+
+
+      fetchTransactionData();
+    } catch (error) {
+      setIsLoading(false);
+
+      console.error("Error deleting transaction:", error);
+    }
+  };  
+
+  // Reset form fields after submission
+  const resetForm = () => {
+    setType("");
+    setAmount("");
+    setCurrency("");
+    setCategory("");
+    setDate("");
+    setDescription("");
+    setProjectName("");
+    setQuantity("");
+    setUnit("");
+    setPaymentMethod("");
+    setVendor("");
+    setError("");
+  };
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+  
+    // Format the date to a readable format
+    const formattedDate = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  
+    return formattedDate;
+  }
 
   return (
-    <form
-      onSubmit={formik.handleSubmit}
-      className="max-w-lg mx-auto my-10 bg-white p-6 rounded-lg shadow-lg space-y-6"
-    >
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-800">
-          Transaction Details
-        </h2>
-        <p className="text-gray-600">Fill in the details below.</p>
-      </div>
-      {/* Display alert message */}
-
-      {isError && (
-        <AlertMessage
-          type="error"
-          message={
-            error?.response?.data?.message ||
-            "Something happened please try again later"
-          }
-        />
-      )}
-      {isSuccess && (
-        <AlertMessage type="success" message="Transaction added successfully" />
-      )}
-      {/* Transaction Type Field */}
-      <div className="space-y-2">
-        <label
-          htmlFor="type"
-          className="flex gap-2 items-center text-gray-700 font-medium"
-        >
-          <FaWallet className="text-blue-500" />
-          <span>Type</span>
-        </label>
-        <select
-          {...formik.getFieldProps("type")}
-          id="type"
-          className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
-        >
-          <option value="">Select transaction type</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
-        </select>
-        {formik.touched.type && formik.errors.type && (
-          <p className="text-red-500 text-xs">{formik.errors.type}</p>
-        )}
-      </div>
-
-      {/* Amount Field */}
-      <div className="flex flex-col space-y-1">
-        <label htmlFor="amount" className="text-gray-700 font-medium">
-          <FaDollarSign className="inline mr-2 text-blue-500" />
-          Amount
-        </label>
-        <input
-          type="number"
-          {...formik.getFieldProps("amount")}
-          id="amount"
-          placeholder="Amount"
-          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
-        />
-        {formik.touched.amount && formik.errors.amount && (
-          <p className="text-red-500 text-xs italic">{formik.errors.amount}</p>
-        )}
-      </div>
-
-      {/* Category Field */}
-      <div className="flex flex-col space-y-1">
-        <label htmlFor="category" className="text-gray-700 font-medium">
-          <FaRegCommentDots className="inline mr-2 text-blue-500" />
-          Category
-        </label>
-        <select
-          {...formik.getFieldProps("category")}
-          id="category"
-          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
-        >
-          <option value="">Select a category</option>
-          {data?.map((category) => {
-            return (
-              <option key={category?._id} value={category?.name}>
-                {category?.name}
-              </option>
-            );
-          })}
-        </select>
-        {formik.touched.category && formik.errors.category && (
-          <p className="text-red-500 text-xs italic">
-            {formik.errors.category}
-          </p>
-        )}
-      </div>
-
-      {/* Date Field */}
-      <div className="flex flex-col space-y-1">
-        <label htmlFor="date" className="text-gray-700 font-medium">
-          <FaCalendarAlt className="inline mr-2 text-blue-500" />
-          Date
-        </label>
-        <input
-          type="date"
-          {...formik.getFieldProps("date")}
-          id="date"
-          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
-        />
-        {formik.touched.date && formik.errors.date && (
-          <p className="text-red-500 text-xs italic">{formik.errors.date}</p>
-        )}
-      </div>
-
-      {/* Description Field */}
-      <div className="flex flex-col space-y-1">
-        <label htmlFor="description" className="text-gray-700 font-medium">
-          <FaRegCommentDots className="inline mr-2 text-blue-500" />
-          Description (Optional)
-        </label>
-        <textarea
-          {...formik.getFieldProps("description")}
-          id="description"
-          placeholder="Description"
-          rows="3"
-          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
-        ></textarea>
-        {formik.touched.description && formik.errors.description && (
-          <p className="text-red-500 text-xs italic">
-            {formik.errors.description}
-          </p>
-        )}
-      </div>
-
-      {/* Submit Button */}
+    <div>
+      {/* Button to open the modal */}
       <button
-        type="submit"
-        className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200"
+        onClick={() => setShowModal(true)}
+        className="create-transaction-btn"
       >
-        Submit Transaction
+        Create new Transaction
       </button>
-    </form>
+      <div className='alert-message-container'>
+        {isError && (
+            <AlertMessage
+              type="error"
+              message={errorMessage}
+            />                                                                                      
+        )}
+        {isSuccess && (
+            <AlertMessage
+              type="success"
+              message={successMessage}
+            />
+        )}
+        {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+
+      </div>
+
+      {/* Add the table below the Create Transaction button */}
+      <div className="transaction-table">
+
+        <h3 className="table-title">Transaction Overview</h3>
+        <table className="table">
+          <thead>
+            <tr>
+            <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
+            <th style={{ backgroundColor: "#d1f2b9" }}>Category</th>
+            <th style={{ backgroundColor: "#b9e0f2" }}>Project Name</th>
+            <th style={{ backgroundColor: "#f2e3b9" }}>Quantity</th>
+            <th style={{ backgroundColor: "#d9b9f2" }}>Unit</th>
+            <th style={{ backgroundColor: "#f2d9b9" }}>Amount</th>
+            <th style={{ backgroundColor: "#b9f2b9" }}>Currency</th>
+            <th style={{ backgroundColor: "#f2b9d9" }}>Type</th>
+            <th style={{ backgroundColor: "#b9f2d9" }}>Payment Method</th>
+            <th style={{ backgroundColor: "#f2f0b9" }}>Vendor</th>
+            <th style={{ backgroundColor: "#d1b9f2" }}>Description</th>
+            <th style={{ backgroundColor: "#b9d1f2" }}>Recorded By</th>
+            <th style={{ backgroundColor: "#f2d1b9" }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+             {/* Loop through the transactionData array and render each transaction */}
+             {transactionData.length > 0 ? (
+                transactionData
+                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)) // Sort in descending order
+                  .map((transaction, index) => (
+                    <tr key={index}>
+                      <td>{formatDate(transaction.date)}</td>
+                      <td>{transaction.category}</td>
+                      <td>{transaction.projectName}</td>
+                      <td>{transaction.quantity}</td>
+                      <td>{transaction.unit}</td>
+                      <td>{transaction.amount}</td>
+                      <td>{transaction.currency.toUpperCase()}</td>
+                      <td>{transaction.type}</td>
+                      <td>{transaction.paymentMethod}</td>
+                      <td>{transaction.vendor}</td>
+                      <td>{transaction.description}</td>
+                      <td>{transaction.recordedBy}</td>
+                      <td> 
+                         <div className="flex space-x-3">
+                            <button
+                              onClick={() => handleUpdateTransaction(transaction._id)}
+                              className="text-blue-500 hover:text-blue-700"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transaction._id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                      </td>
+                    </tr>
+                  ))
+              ) : (
+                <tr>
+                  <td colSpan="12">No transactions available</td>
+                </tr>
+              )}
+
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal to display the form */}
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">Create Transaction</h2>
+            
+            {/* Error message if fields are empty */}
+            {error && <div className="error-message">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="transaction-form">
+              {/* First Row (Type and Amount) */}
+              <div className="form-group">
+                <label className="form-label">Type</label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="form-input"
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Amount</label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Currency</label>
+                <input
+                  type="text"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              {/* Second Row (Category and Date) */}
+              {/* <div className="form-group">
+                <label className="form-label">Category</label>
+                <input
+                  type="text"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div> */}
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="form-input"
+                  required
+                >
+                  <option value="">Select a Category</option>
+                  {/* Display categories dynamically */}
+                  {categories.map((categoryItem) => (
+                    <option key={categoryItem.id} value={categoryItem.Name}>
+                      {categoryItem.Name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              {/* Third Row (Description and Project Name) */}
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Project Name</label>
+                <select
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  className="form-input"
+                  required
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project, index) => (
+                    <option key={index} value={project?.projectName}>{project?.projectName}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fourth Row (Quantity and Unit) */}
+              <div className="form-group">
+                <label className="form-label">Quantity</label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Unit</label>
+                <input
+                  type="text"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              {/* Fifth Row (Payment Method and Vendor) */}
+              <div className="form-group">
+                <label className="form-label">Payment Method</label>
+                <input
+                  type="text"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Vendor</label>
+                <input
+                  type="text"
+                  value={vendor}
+                  onChange={(e) => setVendor(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="submit-btn"
+                >
+                  Submit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    fetchTransactionData();
+                  }}
+                  className="close-btn"
+                >
+                  Close
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
-export default TransactionForm;
+export default CreateTransaction;
+
+// Styles for the component (inside the same file)
+const style = document.createElement('style');
+style.innerHTML = `
+/* Styling for the Create Transaction form */
+.create-transaction-btn {
+  background-color: #003366;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 50px;
+}
+
+.create-transaction-btn:hover {
+  background-color: #002244;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 900px;
+}
+
+.modal-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.error-message {
+  color: red;
+  margin-bottom: 10px;
+}
+
+.transaction-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.submit-btn {
+  background-color: #003366;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.submit-btn:hover {
+  background-color: #002244;
+}
+
+.close-btn {
+  background-color: #f44336;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background-color: #e53935;
+}
+
+.transaction-table {
+  margin: 50px;
+}
+
+.table-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th, .table td {
+  border: 1px solid #ddd;
+  padding: 5px;
+  text-align: left;
+  font-size: 13px;
+}
+  .alert-message-container {
+    position: fixed; /* Keep it fixed at the top */
+    top: 20%; /* Adjust position from top */
+    left: 50%;
+    transform: translateX(-50%); /* Center it horizontally */
+    padding: 15px 30px;
+    max-width: 40%; 
+    width: 100%;
+    z-index: 1000;
+
+  }
+`;
+document.head.appendChild(style);

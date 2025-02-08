@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; 
+import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import axios from "axios";
 import { BASE_URL } from "../../utils/url";
@@ -7,8 +7,16 @@ import { getUserFromStorage } from "../../utils/getUserFromStorage";
 
 const ExcelTableImporter = () => {
   const [data, setData] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [emails, setEmails] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [isSuccess, setIsSuccess] = useState(false);
   const [columns] = useState([
     { Header: "Code", accessor: "Code" },
     { Header: "Description", accessor: "Description" },
@@ -18,6 +26,20 @@ const ExcelTableImporter = () => {
     { Header: "Amount", accessor: "Amount" }
   ]);
   const [error, setError] = useState(null);
+
+  const handleProjectNameChange = (e) => {
+    setProjectName(e.target.value);
+  };
+
+  // Handle changes in the team mates emails input field
+  const handleEmailsChange = (e) => {
+    setEmails(e.target.value);
+  };
+
+  const togglePopup = () => {
+    setIsOpen(!isOpen);
+    setData([]);
+  }
 
   const headerColors = {
     Code: "#d0e0f0",       // Light Blue
@@ -32,93 +54,112 @@ const ExcelTableImporter = () => {
   const invalidCodeColor = "#003366";
   const token = getUserFromStorage();
 
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/budget/lists`, 
-        
-        { 
-          headers: {
-          Authorization: `Bearer ${token}`,
-         },
-        }
-    ); // Replace with your actual API endpoint
-      console.log("Data fetched successfully:", response.data);
- 
-      setData(response.data);      // Store the fetched data in the state
-    } catch (err) {
-        setError("Failed to fetch data");
-        console.error("Error fetching data:", err);
-    }
-  };
-  useEffect(() => {
-    fetchData();
-  }, []);
+//   const fetchData = async () => {
+//     try {
+//       const response = await axios.get(`${BASE_URL}/budget/lists`, 
+//         { 
+//           headers: {
+//             Authorization: `Bearer ${token}`,
+//           },
+//         }
+//       );
+//       console.log("Data fetched successfully:", response.data);
+//       setData(response.data);
+//     } catch (err) {
+//       setError("Failed to fetch data");
+//       console.error("Error fetching data:", err);
+//     }
+//   };
+
+//   useEffect(() => {
+//     fetchData();
+//   }, []);
 
   const sendDataToDatabase = async () => {
-    await axios.post(
-        `${BASE_URL}/budget/create`,
-        {
-          data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-      .then(response => {
-        console.log("Data successfully sent to the database:", response.data);
-        alert("Data successfully sent to the database!");
-      })
-      .catch(error => {
-        console.log("token:", token);
-        console.error("Error sending data to the database:", error);
-        alert("Error sending data to the database.");
-      });
-  };
 
-  const handleFileUpload = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const abuf = e.target.result;
-          const wb = XLSX.read(abuf, { type: "array" });
-          const ws = wb.Sheets[wb.SheetNames[0]]; // Assume first sheet
-          const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
-  
-          // Log the raw data to the console for inspection
-          console.log("Raw Data from Excel:", jsonData); // This will show the entire data
-  
-          // Skip the first row and process remaining data
-          const processedData = jsonData.slice(1).map((row) => {
-            return {
-              Code: row[0],
-              Description: row[1],
-              Quantity: row[2],
-              UOM: row[3],
-              Rate: row[4],
-              Amount: row[5]
-            };
-          });
-  
-          // Remove rows where all main columns are undefined or empty
-          const filteredData = processedData.filter((row) => {
-            return row.Code || row.Description || row.Quantity || row.UOM || row.Rate || row.Amount;
-          });
-  
-          console.log("Filtered Data:", filteredData); // Log the filtered data to check its format
-  
-          setData(filteredData);
-        };
-        reader.readAsArrayBuffer(file);
-      }
+    if(data.length === 0) {
+        setErrorMessage("Please import a valid BOQ file before sending to database!");
+        setIsError(true);
+
+        setTimeout(() => {
+          setIsError(false); 
+       }, 4000);
+    } else {
+        console.log("Data to send to database:", data);
+        setIsOpen(!isOpen); 
+    }
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const emailArray = emails.split(',').map(email => email.trim());
+
+    // Prepare the data to send
+    const projectData = {
+      projectName,
+      teamEmails: emailArray,
+      budgetData: data
     };
 
-  const handleCellChange = (e, rowIndex, columnKey) => {
-    const newData = [...data];
-    newData[rowIndex][columnKey] = e.target.value;
-    setData(newData);
+    try {
+      setIsLoading(true);
+      await axios.post(`${BASE_URL}/budget/create`, projectData, { headers: { Authorization: `Bearer ${token}` } });
+      setIsLoading(false);
+      setSuccessMessage("Project Budget saved successfully");
+      setIsSuccess(true);
+
+      setTimeout(() => {
+        setIsSuccess(false); 
+        setIsOpen(!isOpen);
+        setData([]);
+        setProjectName('');
+        setEmails('');
+
+     }, 4000);
+     
+    } catch (error) {
+        setErrorMessage("Please Import valid BOQ file and try again!");
+        setIsError(true);
+
+        setTimeout(() => {
+          setIsError(false); 
+          setIsLoading(false);
+       }, 4000);
+
+    }
+  }
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const abuf = e.target.result;
+        const wb = XLSX.read(abuf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]]; 
+        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        console.log("Raw Data from Excel:", jsonData);
+
+        const processedData = jsonData.slice(1).map((row) => {
+          return {
+            Code: row[0],
+            Description: row[1],
+            Quantity: row[2],
+            UOM: row[3],
+            Rate: row[4],
+            Amount: row[5]
+          };
+        });
+
+        const filteredData = processedData.filter((row) => {
+          return row.Code || row.Description || row.Quantity || row.UOM || row.Rate || row.Amount;
+        });
+
+        console.log("Filtered Data:", filteredData);
+        setData(filteredData);
+      };
+      reader.readAsArrayBuffer(file);
+    }
   };
 
   const getRowStyle = (row) => {
@@ -185,19 +226,86 @@ const ExcelTableImporter = () => {
 
   return (
     <div className="table-container">
+      {/* Popup Form */}
+      {isOpen && (
+        <div style={styles.popupOverlay}>
+          <div style={styles.popupContainer}>
+            <h2>Create a New Project for imported BOQ</h2>
+            {isError && (
+                <AlertMessage
+                    type="error"
+                    message={errorMessage}
+                />                                                                                      
+            )}
+            {isSuccess && (
+                <AlertMessage
+                type="success"
+                message={successMessage}
+                />
+            )}
+            <form onSubmit={handleSubmit}>
+              <div style={styles.formField}>
+                <label>Project Name*</label>
+                <input
+                  type="text"
+                  placeholder="Enter project name"
+                  value={projectName}
+                  onChange={handleProjectNameChange}
+                  required
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formField}>
+                <label>Team Mates Emails (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Separate emails with commas"
+                  value={emails}
+                  onChange={handleEmailsChange}
+                  style={styles.input}
+                />
+              </div>
+              {error && <div style={styles.error}>{error}</div>}
+              <div style={styles.formActions}>
+                <button type="button" onClick={togglePopup} style={styles.cancelButton}>
+                  Cancel
+                </button>
+                {isLoading ? <AlertMessage type="loading" message="Loading" /> : <button type="submit" style={styles.submitButton}>
+                  Submit
+                </button>}
+
+                
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Display alert message */}
+      {isError && (
+        <AlertMessage
+          type="error"
+          message={errorMessage}
+        />
+      )}
+      {isSuccess && (
+        <AlertMessage
+          type="success"
+          message={successMessage}
+        />
+      )}
       <label htmlFor="file-upload" className="import-budget-button">
-        Import Budget from Excel
+        Import contract BOQ
       </label>
       <input
         id="file-upload"
         type="file"
         accept=".xlsx, .xls"
         onChange={handleFileUpload}
-        style={{ display: 'none' }} // Hide the default file input
+        style={{ display: 'none' }} 
       />
       <div className="send-data-button-container">
         <button onClick={sendDataToDatabase} className="send-data-button">
-            Send Data to Database
+            Send Contract BOQ to Database
         </button>
       </div>
 
@@ -207,7 +315,7 @@ const ExcelTableImporter = () => {
             <tr>
               <th colSpan={6} className="summary-row">
                 <div className="row-title">
-                  <strong>Update Quantity, UOM, Rate and Amount</strong>
+                  <strong>REVIEW CONTRACT BOQ</strong>
                 </div>
               </th>
             </tr>
@@ -239,7 +347,7 @@ const ExcelTableImporter = () => {
                 <tr key={rowIndex} style={getRowStyle(row)}>
                   {columns.map((column) => (
                     <td key={column.accessor}>
-                      {column.accessor === "Amount" && (isInvalidCodeRow(row) || row.Code === "") ? (
+                      {column.accessor === "Amount" || column.accessor === "Rate" ? (
                         <span style={getCellStyle(row, column.accessor)}>
                           {formatWithCommas(row[column.accessor])}
                         </span>
@@ -259,15 +367,9 @@ const ExcelTableImporter = () => {
                       ) : column.accessor === "Code" && isCategoryRow(row) ? (
                         row[column.accessor]
                       ) : (
-                        <input
-                          type="text"
-                          value={column.accessor === "Rate" || column.accessor === "Amount"
-                            ? formatWithCommas(row[column.accessor])
-                            : row[column.accessor] || ""}
-                          onChange={(e) => handleCellChange(e, rowIndex, column.accessor)}
-                          disabled={isCategoryRow(row)} 
-                          style={{ width: "100%" }}
-                        />
+                        <span style={{ width: "100%" }}>
+                          {row[column.accessor] || ""}
+                        </span>
                       )}
                     </td>
                   ))}
@@ -277,12 +379,6 @@ const ExcelTableImporter = () => {
           </tbody>
         </table>
       </div>
-
-      {isLoading && <AlertMessage type="loading" message="Loading" />}
-      {isError && (
-        <AlertMessage type="error" message={error.response.data.message} />
-      )}
-
 
       <style>
         {`
@@ -307,7 +403,7 @@ const ExcelTableImporter = () => {
             font-size: 18px;
             font-weight: bold;
             text-align: center;
-        }
+          }
 
           .styled-table th, .styled-table td {
             border: 1px solid #ddd;
@@ -322,16 +418,6 @@ const ExcelTableImporter = () => {
             position: sticky;
             top: 0;
             z-index: 10;
-          }
-
-          .styled-table td input {
-            width: 100%;
-            padding: 4px;
-            border: 1px solid #ddd;
-            box-sizing: border-box;
-            background-color: #fff;
-            font-size: 12px;
-            text-align: center;
           }
 
           .styled-table tr:nth-child(even) {
@@ -354,13 +440,6 @@ const ExcelTableImporter = () => {
             background-color: #e6f7ff;
           }
 
-          .styled-table td input:disabled {
-            background-color: #d3d3d3;
-            cursor: not-allowed;
-            font-size: 12px;
-            font-weight: bold;
-          }
-
           .summary-row {
             background-color: #f1f1f1;
             text-align: center;
@@ -372,37 +451,35 @@ const ExcelTableImporter = () => {
           .import-budget-button {
             display: inline-block;
             padding: 10px 20px;
-            background-color: #003366; /* Dark blue background */
+            background-color: #003366;
             color: white;
             font-size: 14px;
-            font-weight: bold;  /* Bold text */
-            font-style: italic; /* Italic text */
+            font-weight: bold;
+            font-style: italic;
             border: none;
             cursor: pointer;
             text-align: center;
             border-radius: 5px;
             margin-bottom: 20px;
+            margin-top: 20px;
           }
 
           .import-budget-button:hover {
-            background-color: #002244; /* Slightly darker blue when hovered */
+            background-color: #002244;
           }
 
           .import-budget-button:active {
-            background-color: #001933; /* Even darker blue when clicked */
+            background-color: #001933;
           }
 
           .send-data-button-container {
             display: flex;
-            justify-content: center;  /* Centers content horizontally */
-            align-items: center;  /* Centers content vertically */
+            justify-content: center;
+            align-items: center;
             width: 100%;
           }
 
-          .send-data-button-container {
-         }
-
-         .send-data-button {
+          .send-data-button {
             padding: 10px 20px;
             background-color: #003366;
             color: white;
@@ -412,22 +489,76 @@ const ExcelTableImporter = () => {
             border: none;
             cursor: pointer;
             border-radius: 5px;
-         }
+          }
 
-         .send-data-button:hover {
+          .send-data-button:hover {
             background-color: #002244;
-         }
+          }
 
-         .send-data-button:active {
+          .send-data-button:active {
             background-color: #001933;
-         }
-
-
-
+          }
+            
         `}
       </style>
     </div>
   );
 };
+const styles = {
+      popupOverlay: {
+      zIndex: 1000,
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    popupContainer: {
+      backgroundColor: '#fff',
+      padding: '20px',
+      borderRadius: '8px',
+      width: '400px',
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+    },
+    formField: {
+      marginBottom: '15px',
+    },
+    input: {
+      width: '100%',
+      padding: '8px',
+      fontSize: '16px',
+      borderRadius: '4px',
+      border: '1px solid #ccc',
+    },
+    formActions: {
+      display: 'flex',
+      justifyContent: 'space-between',
+    },
+    cancelButton: {
+      padding: '10px 20px',
+      backgroundColor: '#ccc',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '5px',
+      cursor: 'pointer',
+    },
+    submitButton: {
+      padding: '10px 20px',
+      backgroundColor: '#002244',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '5px',
+      cursor: 'pointer',
+    },
+    error: {
+      color: 'red',
+      fontSize: '14px',
+      marginBottom: '10px',
+    },
+  };  
 
 export default ExcelTableImporter;

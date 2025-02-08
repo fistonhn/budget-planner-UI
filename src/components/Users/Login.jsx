@@ -55,7 +55,7 @@ const LoginForm = () => {
       if (isSuccess) {
         navigate("/dashboard");
       }
-    }, 3000);
+    }, 2000);
   }, [isPending, isError, error, isSuccess]);
   return (
     <form
