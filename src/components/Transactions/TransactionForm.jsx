@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import * as XLSX from "xlsx";
 import { FaTrash, FaEdit } from "react-icons/fa";
 import { BASE_URL } from "../../utils/url";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
@@ -9,17 +10,16 @@ const token = getUserFromStorage();
 
 const CreateTransaction = () => {
 
-  const [type, setType] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("");
   const [category, setCategory] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [projectName, setProjectName] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [price, setPrice] = useState("");
   const [unit, setUnit] = useState("");
+  const [amount, setAmount] = useState(0);
+
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [vendor, setVendor] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -30,13 +30,24 @@ const CreateTransaction = () => {
   const [projects, setProjects] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [switchToEditMode, setSwitchToEditMode] = useState(false);
+  const [transactionId, setTransactionId] = useState("");
   const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
+  
 
   useEffect(() => {
     fetchProjectData();
     fetchTransactionData();
     fetchCategories();
-  }, []);
+
+    if (quantity && price) {
+      setAmount(quantity * price); // Update amount whenever quantity or price changes
+    } else {
+      setAmount(0); // Reset amount if quantity or price is not provided
+    }
+
+  }, [quantity, price]);
 
   const fetchTransactionData = async () => {
     try {
@@ -87,17 +98,15 @@ const CreateTransaction = () => {
     e.preventDefault();
 
     // Validate all fields
-    if (!type || !amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !vendor
+    if (!amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !price
     ) {
-      setError("All fields are required!");
+      setError("Please fill in all required fields!");
       return;
     }
 
     // Prepare data for submission
     const transactionData = {
-      type,
       amount,
-      currency,
       category,
       date,
       description,
@@ -105,7 +114,7 @@ const CreateTransaction = () => {
       quantity,
       unit,
       paymentMethod,
-      vendor,
+      price,
     };
 
     try {
@@ -131,7 +140,7 @@ const CreateTransaction = () => {
       
     } catch (error) {
       setIsLoading(false);
-      setErrorMessage("Category name already exists");
+      setErrorMessage("Something went wrong. Please try again!");
       setIsError(true);
 
       setTimeout(() => {
@@ -167,13 +176,148 @@ const CreateTransaction = () => {
 
       console.error("Error deleting transaction:", error);
     }
-  };  
+  }; 
+  
+  const handleUpdateTransaction = async (id) => {
+    setShowModal(true)
+    setSwitchToEditMode(true);
+    setTransactionId(id)
+
+    const dataToEdit = transactionData.find((transaction) => transaction._id === id);
+
+    setAmount(dataToEdit.amount);
+    setCategory(dataToEdit.category);
+    setDate(dataToEdit.date);
+    setDescription(dataToEdit.description);
+    setProjectName(dataToEdit.projectName);
+    setQuantity(dataToEdit.quantity);
+    setUnit(dataToEdit.unit);
+    setPaymentMethod(dataToEdit.paymentMethod);
+    setPrice(dataToEdit.price);
+
+  };
+
+  const handleSaveUpdatedTransaction = async () => {
+    // Validate all fields
+    if (!amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !price
+    ) {
+      setError("Please fill in all required fields!");
+      return;
+    }
+
+    // Prepare data for submission
+    const transactionData = {
+      amount,
+      category,
+      date,
+      description,
+      projectName,
+      quantity,
+      unit,
+      paymentMethod,
+      price,
+    };
+
+    try {
+      setIsLoading(true);
+      await axios.put(`${BASE_URL}/transactions/update/${transactionId}`, transactionData,
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage("Transaction updated successfully");
+
+      setTimeout(() => {
+        setIsSuccess(false); 
+        resetForm();
+        setShowModal(false);
+        setSwitchToEditMode(false);
+        fetchTransactionData();
+     }, 3000);
+
+    } catch (error) {
+      setIsLoading(false);
+      setErrorMessage("something went wrong. Please try again!");
+      setIsError(true);
+
+      setTimeout(() => {
+        setIsError(false);
+
+      }, 3000);
+      console.error("There was an error updating the transaction:", error);
+    }
+  }
+
+  const handleExcelUpload = (event) => {
+    const file = event.target.files[0];
+    setFileName(file.name);
+
+    if (file) {
+      const reader = new FileReader();
+      
+      // When the file is read, convert it to JSON format
+      reader.onload = async (e) => {
+        const abuf = e.target.result;
+        const wb = XLSX.read(abuf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        const jsonFormattedData = jsonData.map((row, index) => {
+          // Skip the header row and generate JSON with header as keys
+          if (index === 0) return null; // Skip the header row
+          return jsonData[0].reduce((acc, columnName, colIndex) => {
+            acc[columnName] = row[colIndex];
+            return acc;
+          }, {});
+        }).filter(item => item !== null); // Filter out the null (header row)
+
+        try {
+          setIsLoading(true);
+          await axios.post(
+            `${BASE_URL}/transactions/importTransactions`,
+            jsonFormattedData,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setIsLoading(false);
+    
+          setFileName("");
+          setIsSuccess(true);
+          setSuccessMessage("Transactions imported successfully");
+    
+          fetchTransactionData();
+    
+          // Fetch updated categories
+          setTimeout(() => {
+            setIsSuccess(false);
+          }, 3000);
+        } catch (err) {
+          console.log('err', err)
+          setIsLoading(false);
+          setErrorMessage("Invalid file format! Please check file columns.");
+          setIsError(true);
+
+          setTimeout(() => {
+            setIsError(false);
+
+          }, 3000);
+          console.error("There was an error creating the transaction:", error);
+        }
+  
+      };
+  
+      // Read the file as an array buffer
+      reader.readAsArrayBuffer(file);
+    }
+  };
 
   // Reset form fields after submission
   const resetForm = () => {
-    setType("");
     setAmount("");
-    setCurrency("");
     setCategory("");
     setDate("");
     setDescription("");
@@ -181,7 +325,7 @@ const CreateTransaction = () => {
     setQuantity("");
     setUnit("");
     setPaymentMethod("");
-    setVendor("");
+    setPrice("");
     setError("");
   };
   function formatDate(dateString) {
@@ -200,12 +344,39 @@ const CreateTransaction = () => {
   return (
     <div>
       {/* Button to open the modal */}
-      <button
-        onClick={() => setShowModal(true)}
-        className="create-transaction-btn"
-      >
-        Create new Transaction
-      </button>
+      <div className='create-transaction-btn-container'>
+        
+        {/* <div className="import-button-container"> */}
+          <button
+            onClick={() => setShowModal(true)}
+            className="create-transaction-btn"
+          >
+            Create new Transaction
+          </button>
+
+          <div>
+            <label htmlFor="excel-upload" className="import-button-label">
+              Import Transactions (Excel)
+            </label>
+            <input
+              type="file"
+              id="excel-upload"
+              className="import-file-input"
+              accept=".xlsx, .xls"
+              onChange={handleExcelUpload}
+            />
+            <div className="filename-display">
+              {fileName ? `Selected file: ${fileName}` : "No file selected"}
+            </div>
+          </div>
+        {/* </div>  */}
+        {/* <button
+          onClick={() => setShowModal(true)}
+          className="create-transaction-btn"
+        >
+          Import Transactions (Excel)
+        </button> */}
+      </div>
       <div className='alert-message-container'>
         {isError && (
             <AlertMessage
@@ -230,18 +401,16 @@ const CreateTransaction = () => {
         <table className="table">
           <thead>
             <tr>
-            <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
-            <th style={{ backgroundColor: "#d1f2b9" }}>Category</th>
             <th style={{ backgroundColor: "#b9e0f2" }}>Project Name</th>
+            <th style={{ backgroundColor: "#d1f2b9" }}>Category</th>
+            <th style={{ backgroundColor: "#d1b9f2" }}>Description</th>
             <th style={{ backgroundColor: "#f2e3b9" }}>Quantity</th>
             <th style={{ backgroundColor: "#d9b9f2" }}>Unit</th>
+            <th style={{ backgroundColor: "#d9b9f2" }}>Price</th>
             <th style={{ backgroundColor: "#f2d9b9" }}>Amount</th>
-            <th style={{ backgroundColor: "#b9f2b9" }}>Currency</th>
-            <th style={{ backgroundColor: "#f2b9d9" }}>Type</th>
             <th style={{ backgroundColor: "#b9f2d9" }}>Payment Method</th>
-            <th style={{ backgroundColor: "#f2f0b9" }}>Vendor</th>
-            <th style={{ backgroundColor: "#d1b9f2" }}>Description</th>
             <th style={{ backgroundColor: "#b9d1f2" }}>Recorded By</th>
+            <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
             <th style={{ backgroundColor: "#f2d1b9" }}>Action</th>
             </tr>
           </thead>
@@ -249,21 +418,19 @@ const CreateTransaction = () => {
              {/* Loop through the transactionData array and render each transaction */}
              {transactionData.length > 0 ? (
                 transactionData
-                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)) // Sort in descending order
+                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                   .map((transaction, index) => (
                     <tr key={index}>
-                      <td>{formatDate(transaction.date)}</td>
-                      <td>{transaction.category}</td>
                       <td>{transaction.projectName}</td>
+                      <td>{transaction.category}</td>
+                      <td>{transaction.description}</td>
                       <td>{transaction.quantity}</td>
                       <td>{transaction.unit}</td>
+                      <td>{transaction.price}</td>
                       <td>{transaction.amount}</td>
-                      <td>{transaction.currency.toUpperCase()}</td>
-                      <td>{transaction.type}</td>
                       <td>{transaction.paymentMethod}</td>
-                      <td>{transaction.vendor}</td>
-                      <td>{transaction.description}</td>
                       <td>{transaction.recordedBy}</td>
+                      <td>{formatDate(transaction.date)}</td>
                       <td> 
                          <div className="flex space-x-3">
                             <button
@@ -304,51 +471,20 @@ const CreateTransaction = () => {
             <form onSubmit={handleSubmit} className="transaction-form">
               {/* First Row (Type and Amount) */}
               <div className="form-group">
-                <label className="form-label">Type</label>
+                <label className="form-label">Project Name</label>
                 <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
                   className="form-input"
                   required
                 >
-                  <option value="">Select Type</option>
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
+                  <option value="">Select a project</option>
+                  {projects.map((project, index) => (
+                    <option key={index} value={project?.projectName}>{project?.projectName}</option>
+                  ))}
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Amount</label>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Currency</label>
-                <input
-                  type="text"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              {/* Second Row (Category and Date) */}
-              {/* <div className="form-group">
-                <label className="form-label">Category</label>
-                <input
-                  type="text"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div> */}
               <div className="form-group">
                 <label className="form-label">Category</label>
                 <select
@@ -368,39 +504,12 @@ const CreateTransaction = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              {/* Third Row (Description and Project Name) */}
-              <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="form-input"
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Project Name</label>
-                <select
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className="form-input"
-                  required
-                >
-                  <option value="">Select a project</option>
-                  {projects.map((project, index) => (
-                    <option key={index} value={project?.projectName}>{project?.projectName}</option>
-                  ))}
-                </select>
               </div>
 
               {/* Fourth Row (Quantity and Unit) */}
@@ -426,7 +535,28 @@ const CreateTransaction = () => {
                 />
               </div>
 
-              {/* Fifth Row (Payment Method and Vendor) */}
+              <div className="form-group">
+                <label className="form-label">Price</label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Amount</label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Payment Method</label>
                 <input
@@ -437,30 +567,42 @@ const CreateTransaction = () => {
                   required
                 />
               </div>
-
+              
               <div className="form-group">
-                <label className="form-label">Vendor</label>
+                <label className="form-label">Date</label>
                 <input
-                  type="text"
-                  value={vendor}
-                  onChange={(e) => setVendor(e.target.value)}
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
                   className="form-input"
                   required
                 />
               </div>
 
               <div className="form-actions">
-                <button
-                  type="submit"
-                  className="submit-btn"
-                >
-                  Submit
-                </button>
+                {switchToEditMode ? 
+                  <button
+                    type="button"
+                    className="submit-btn"
+                    onClick={() => handleSaveUpdatedTransaction()}
+                  >
+                    Update
+                  </button> :
+                  <button
+                    type="submit"
+                    className="submit-btn"
+                  >
+                    Submit
+                  </button>
+                }
+                
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false);
                     fetchTransactionData();
+                    resetForm();
+                    setSwitchToEditMode(false);
                   }}
                   className="close-btn"
                 >
@@ -484,11 +626,20 @@ style.innerHTML = `
 .create-transaction-btn {
   background-color: #003366;
   color: white;
-  padding: 10px 20px;
   border-radius: 4px;
   font-size: 16px;
   cursor: pointer;
-  margin: 50px;
+  max-width: 60%
+}
+.create-transaction-btn-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  max-width: 50%;
+  padding: 10px;
+  margin-left: 40px;
+  margin-top: 80px;
+  margin-bottom: -40px;
 }
 
 .create-transaction-btn:hover {
@@ -599,16 +750,55 @@ style.innerHTML = `
   text-align: left;
   font-size: 13px;
 }
-  .alert-message-container {
-    position: fixed; /* Keep it fixed at the top */
-    top: 20%; /* Adjust position from top */
-    left: 50%;
-    transform: translateX(-50%); /* Center it horizontally */
-    padding: 15px 30px;
-    max-width: 40%; 
-    width: 100%;
-    z-index: 1000;
+.alert-message-container {
+  position: fixed; /* Keep it fixed at the top */
+  top: 20%; /* Adjust position from top */
+  left: 50%;
+  transform: translateX(-50%); /* Center it horizontally */
+  padding: 15px 30px;
+  max-width: 40%; 
+  width: 100%;
+  z-index: 1000;
+}
 
-  }
+  /* Container for the import button */ 
+.import-button-label {
+  background-color: #003366; /* Dark blue */
+  color: white;
+  padding: 10px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  display: inline-block;
+  text-align: center;
+  margin-left: -150px; /* space between button and filename display */
+}
+
+/* Hover effect for the label */
+.import-button-label:hover {
+  background-color: #002244; /* Slightly darker blue */
+  transform: translateY(-2px); /* Elevate button effect */
+}
+
+/* Input file styling: Hide the default file input */
+.import-file-input {
+  display: none; /* Hide the default file input */
+}
+
+/* Style the filename display */
+.filename-display {
+  font-size: 0.9rem;
+  color: #4a4a4a;
+  padding-top: 8px;
+  font-weight: 400;
+}
+
+/* Optional: add focus effect on label when input is focused */
+.import-file-input:focus + .import-button-label {
+  border: 2px solid #3b82f6; /* Blue border on focus */
+  box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); /* Blue glow */
+}
 `;
 document.head.appendChild(style);
