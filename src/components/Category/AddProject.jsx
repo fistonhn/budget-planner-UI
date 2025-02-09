@@ -19,120 +19,115 @@ const Button = ({ onClick, label, isLoading, isDisabled, className }) => {
   );
 };
 
-// Main Component for Category Selection & Addition
-const CategorySelection = ({category, setCategory}) => {
-  const [categories, setCategories] = useState([]);
-  const [filteredCategories, setFilteredCategories] = useState([]);
+// Main Component for Project Selection & Addition
+const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
+  const [projects, setProjects] = useState([]);
+  const [filteredProjects, setFilteredProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  // const [category, setCategory] = useState(null);
-  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
-    fetchCategories();
+    fetchProjects();
   }, []);
 
-  const fetchCategories = async () => {
+  const fetchProjects = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/categories/lists`, {
+      const response = await axios.get(`${BASE_URL}/budget/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCategories(response.data);
-      setFilteredCategories(response.data);
+      setProjects(response.data);
+      setFilteredProjects(response.data);
       setIsLoading(false);
-      console.log("response.data", response.data);
     } catch (err) {
       setIsLoading(false);
-      console.error("Error fetching categories", err);
+      console.error("Error fetching projects", err);
     }
   };
 
-  const handleSelectCategory = (category) => {
-    setCategory(category);
+  const handleSelectProject = (project) => {
+    setSelectedProject(project); // Update the parent component's selectedProject state
     setDropdownOpen(false); // Close the dropdown after selecting
   };
 
-  const handleAddCategory = async () => {
-    console.log(newCategoryName);
-    if (!newCategoryName) {
-      setError("Please enter a category name.");
+  const handleAddProject = async () => {
+    if (!newProjectName) {
+      setError("Please enter a project name.");
       return;
     }
 
-    const formData = { name: newCategoryName };
+    // const projectData = {
+    //     projectName,
+    //     teamEmails: emailArray,
+    //     budgetData: data
+    //   };
+
+    const formData = { projectName: newProjectName, teamEmails: [], budgetData: [] };
 
     try {
       await axios.post(
-        `${BASE_URL}/categories/create`,
+        `${BASE_URL}/budget/create`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setNewCategoryName("");
+      setNewProjectName("");
       setIsSuccess(true);
-      setSuccessMessage("Category added successfully");
+      setSuccessMessage("Project added successfully");
       setIsLoading(false);
 
-      fetchCategories();
+      fetchProjects(); // Refresh the project list
 
-      // Fetch updated categories
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
+      setTimeout(() => setIsSuccess(false), 3000);
     } catch (err) {
-      setError("Category already exists or is Invalid!");
+      setError("Project already exists or is Invalid!");
       setIsLoading(false);
-
-      setTimeout(() => {
-        setError("");
-      }, 3000);
+      setTimeout(() => setError(""), 3000);
     }
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    console.log("e.target.value", e.target.value);
 
-    const filtered = categories?.filter((category) =>
-      category.Name.toLowerCase().includes(e.target.value.toLowerCase())
+    const filtered = projects?.filter((project) =>
+      project.Name.toLowerCase().includes(e.target.value.toLowerCase())
     );
-    setFilteredCategories(filtered);
+    setFilteredProjects(filtered);
   };
 
   return (
     <div className="container">
-      <h2>Categories</h2>
+      <h2>Projects</h2>
 
-      {/* Custom Dropdown for Categories with Search */}
+      {/* Custom Dropdown for Projects with Search */}
       <div className="dropdown-container">
         <div
           className="dropdown-toggle"
           onClick={() => setDropdownOpen(!dropdownOpen)}
         >
-          {category ? category : "Search or select a category"}
+          {selectedProject ? selectedProject : "Search or select a project"}
         </div>
 
         {dropdownOpen && (
           <div className="dropdown-menu">
-            {/* Add Category Form */}
-            <div className="add-category-form">
+            {/* Add Project Form */}
+            <div className="add-project-form">
               <input
                 type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="Enter new category name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="Enter new project name"
                 className="form-input"
               />
               <Button
-                onClick={handleAddCategory}
-                label="Add Category"
+                onClick={handleAddProject}
+                label="Add Project"
                 isLoading={isLoading}
-                isDisabled={!newCategoryName}
-                className="add-category-btn"
+                isDisabled={!newProjectName}
+                className="add-project-btn"
               />
             </div>
 
@@ -141,21 +136,21 @@ const CategorySelection = ({category, setCategory}) => {
               type="text"
               value={searchTerm}
               onChange={handleSearch}
-              placeholder="Search categories..."
+              placeholder="Search projects..."
               className="dropdown-search"
             />
-            {filteredCategories.length === 0 && (
+            {filteredProjects.length === 0 && (
               <div className="no-results">No results found</div>
             )}
-            {filteredCategories
+            {filteredProjects
               ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-              ?.map((category, index) => (
+              ?.map((project, index) => (
                 <div
                   key={index}
                   className="dropdown-item"
-                  onClick={() => handleSelectCategory(category.Name)}
+                  onClick={() => handleSelectProject(project.projectName)}
                 >
-                  {category.Name?.charAt(0)?.toUpperCase() + category?.Name?.slice(1)}
+                  {project.projectName?.charAt(0)?.toUpperCase() + project?.projectName?.slice(1)}
                 </div>
               ))}
           </div>
@@ -214,7 +209,7 @@ const CategorySelection = ({category, setCategory}) => {
           outline: none;
         }
 
-        .add-category-btn {
+        .add-project-btn {
           margin-top: 10px;
         }
 
@@ -285,7 +280,7 @@ const CategorySelection = ({category, setCategory}) => {
           color: #888;
         }
 
-        .add-category-form {
+        .add-project-form {
           margin-bottom: 10px;
         }
       `}</style>
@@ -293,4 +288,4 @@ const CategorySelection = ({category, setCategory}) => {
   );
 };
 
-export default CategorySelection;
+export default ProjectSelection;

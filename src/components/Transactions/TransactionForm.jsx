@@ -5,15 +5,16 @@ import { FaTrash, FaEdit } from "react-icons/fa";
 import { BASE_URL } from "../../utils/url";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
 import AlertMessage from "../Alert/AlertMessage";
+import CategorySelection from "../Category/AddCategory";
+import ProjectSelection from "../Category/AddProject";
 
 const token = getUserFromStorage();
 
 const CreateTransaction = () => {
-
   const [category, setCategory] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
-  const [projectName, setProjectName] = useState("");
+  const [selectedProject, setSelectedProject] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [unit, setUnit] = useState("");
@@ -34,6 +35,8 @@ const CreateTransaction = () => {
   const [transactionId, setTransactionId] = useState("");
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
+
+  console.log("categorycategorycategorycategory", selectedProject)
   
 
   useEffect(() => {
@@ -99,7 +102,7 @@ const CreateTransaction = () => {
     e.preventDefault();
 
     // Validate all fields
-    if (!amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !price
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price
     ) {
       setError("Please fill in all required fields!");
       return;
@@ -111,12 +114,14 @@ const CreateTransaction = () => {
       category,
       date,
       description,
-      projectName,
+      projectName: selectedProject,
       quantity,
       unit,
       paymentMethod,
       price,
     };
+
+    // projectName
 
     try {
       setIsLoading(true);
@@ -190,7 +195,7 @@ const CreateTransaction = () => {
     setCategory(dataToEdit.category);
     setDate(dataToEdit.date);
     setDescription(dataToEdit.description);
-    setProjectName(dataToEdit.projectName);
+    setSelectedProject(dataToEdit.selectedProject);
     setQuantity(dataToEdit.quantity);
     setUnit(dataToEdit.unit);
     setPaymentMethod(dataToEdit.paymentMethod);
@@ -200,7 +205,7 @@ const CreateTransaction = () => {
 
   const handleSaveUpdatedTransaction = async () => {
     // Validate all fields
-    if (!amount || !category || !date || !projectName || !quantity || !unit || !paymentMethod || !price
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price
     ) {
       setError("Please fill in all required fields!");
       return;
@@ -212,7 +217,7 @@ const CreateTransaction = () => {
       category,
       date,
       description,
-      projectName,
+      projectName: selectedProject,
       quantity,
       unit,
       paymentMethod,
@@ -322,7 +327,7 @@ const CreateTransaction = () => {
     setCategory("");
     setDate("");
     setDescription("");
-    setProjectName("");
+    setSelectedProject("");
     setQuantity("");
     setUnit("");
     setPaymentMethod("");
@@ -421,7 +426,11 @@ const CreateTransaction = () => {
                 transactionData
                   ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                   ?.map((transaction, index) => (
-                    <tr key={index}>
+                    // <tr key={index}>
+                    <tr
+                      key={transaction._id}
+                      className={index % 2 === 0 ? 'odd-row' : 'even-row'}
+                    >
                       <td>{transaction.projectName}</td>
                       <td>{transaction.category}</td>
                       <td>{transaction.description}</td>
@@ -470,42 +479,13 @@ const CreateTransaction = () => {
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit} className="transaction-form">
-              {/* First Row (Type and Amount) */}
-              <div className="form-group">
-                <label className="form-label">Project Name</label>
-                <select
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className="form-input"
-                  required
-                >
-                  <option value="">Select a project</option>
-                  {projects
-                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  .map((project, index) => (
-                    <option key={index} value={project?.projectName}>{project?.projectName?.charAt(0)?.toUpperCase() + project?.projectName?.slice(1)}</option>
-                  ))}
-                </select>
+              <div className="form-group-categories">
+                <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="form-input"
-                  required
-                >
-                  <option value="">Select a Category</option>
-                  {/* Display categories dynamically */}
-                  {categories
-                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  .map((categoryItem) => (
-                    <option key={categoryItem.id} value={categoryItem.Name}>
-                      {categoryItem.Name.charAt(0)?.toUpperCase() + categoryItem?.Name?.slice(1)}
-                    </option>
-                  ))}
-                </select>
+
+              <div className="form-group-categories">
+                <CategorySelection category={category} setCategory={setCategory} />
               </div>
 
               <div className="form-group">
@@ -709,6 +689,10 @@ style.innerHTML = `
   justify-content: space-between;
   margin-top: 20px;
 }
+.form-group-categories{
+  margin-top: -24px;
+  margin-left: -20px;
+}
 
 .submit-btn {
   background-color: #003366;
@@ -805,5 +789,14 @@ style.innerHTML = `
   border: 2px solid #3b82f6; /* Blue border on focus */
   box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); /* Blue glow */
 }
+  /* styles.css */
+.odd-row {
+  background-color: #ffffff; /* White */
+}
+
+.even-row {
+  background-color: #f0f0f0; /* Light Gray */
+}
+
 `;
 document.head.appendChild(style);
