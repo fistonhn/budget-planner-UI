@@ -75,6 +75,7 @@ const CreateTransaction = () => {
           },
         }
       );
+      console.log("response.data", response.data)
       setProjects(response.data);
     } catch (err) {
       setError("Failed to fetch data");
@@ -418,8 +419,8 @@ const CreateTransaction = () => {
              {/* Loop through the transactionData array and render each transaction */}
              {transactionData.length > 0 ? (
                 transactionData
-                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  .map((transaction, index) => (
+                  ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                  ?.map((transaction, index) => (
                     <tr key={index}>
                       <td>{transaction.projectName}</td>
                       <td>{transaction.category}</td>
@@ -479,8 +480,10 @@ const CreateTransaction = () => {
                   required
                 >
                   <option value="">Select a project</option>
-                  {projects.map((project, index) => (
-                    <option key={index} value={project?.projectName}>{project?.projectName}</option>
+                  {projects
+                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                  .map((project, index) => (
+                    <option key={index} value={project?.projectName}>{project?.projectName?.charAt(0)?.toUpperCase() + project?.projectName?.slice(1)}</option>
                   ))}
                 </select>
               </div>
@@ -495,9 +498,11 @@ const CreateTransaction = () => {
                 >
                   <option value="">Select a Category</option>
                   {/* Display categories dynamically */}
-                  {categories.map((categoryItem) => (
+                  {categories
+                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                  .map((categoryItem) => (
                     <option key={categoryItem.id} value={categoryItem.Name}>
-                      {categoryItem.Name}
+                      {categoryItem.Name.charAt(0)?.toUpperCase() + categoryItem?.Name?.slice(1)}
                     </option>
                   ))}
                 </select>

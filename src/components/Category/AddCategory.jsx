@@ -32,6 +32,7 @@ const AddCategory = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCategories(response.data);
+      console.log('response.data', response.data)
     } catch (err) {
       console.error("Error fetching categories", err);
     }
@@ -289,7 +290,7 @@ const AddCategory = () => {
               .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
               .map((category) => (
                 <tr key={category.id}>
-                  <td>{category.Name}</td>
+                  <td>{ category.Name?.charAt(0)?.toUpperCase() + category?.Name?.slice(1) }</td>
                   <td className="action-buttons">
                     <button
                       onClick={() => handleUpdateCategory(category._id)}
