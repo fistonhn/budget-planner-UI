@@ -92,8 +92,10 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
 
+    console.log(e.target.value)
+
     const filtered = projects?.filter((project) =>
-      project.Name.toLowerCase().includes(e.target.value.toLowerCase())
+      project.projectName.toLowerCase().includes(e.target.value.toLowerCase())
     );
     setFilteredProjects(filtered);
   };

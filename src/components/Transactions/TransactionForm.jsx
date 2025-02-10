@@ -35,9 +35,13 @@ const CreateTransaction = () => {
   const [transactionId, setTransactionId] = useState("");
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
+  const [selectableCategories, setSelectableCategories] = useState([])
 
-  console.log("categorycategorycategorycategory", selectedProject)
-  
+  const [filters, setFilters] = useState({
+    startDate: "",
+    endDate: "",
+    category: "",
+  });  
 
   useEffect(() => {
     fetchProjectData();
@@ -62,6 +66,8 @@ const CreateTransaction = () => {
         }
       );
       setTransactionData(response.data);
+      setSelectableCategories(response.data)
+
       console.log('Transactions:', response.data);
     } catch (err) {
       setError("Failed to fetch data");
@@ -347,266 +353,297 @@ const CreateTransaction = () => {
     return formattedDate;
   }
 
-  return (
-    <div>
-      {/* Button to open the modal */}
-      <div className='create-transaction-btn-container'>
-        
-        {/* <div className="import-button-container"> */}
-          <button
-            onClick={() => setShowModal(true)}
-            className="create-transaction-btn"
-          >
-            Create new Transaction
-          </button>
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    console.log(value)
 
-          <div>
-            <label htmlFor="excel-upload" className="import-button-label">
-              Import Transactions (Excel)
-            </label>
-            <input
-              type="file"
-              id="excel-upload"
-              className="import-file-input"
-              accept=".xlsx, .xls"
-              onChange={handleExcelUpload}
-            />
-            <div className="filename-display">
-              {fileName ? `Selected file: ${fileName}` : "No file selected"}
-            </div>
-          </div>
-        {/* </div>  */}
-        {/* <button
-          onClick={() => setShowModal(true)}
-          className="create-transaction-btn"
-        >
+    if(value==='All'){
+      setTransactionData(selectableCategories)
+    } else {
+    const filteredCategories = selectableCategories?.filter(category => category.category.includes(value));
+
+    console.log('value', filteredCategories)
+    setFilters((prev) => ({ ...prev, [name]: value }));
+
+    setTransactionData(filteredCategories)
+    }
+  };
+
+return (
+  <div>
+    {/* Button to open the modal */}
+    <div className='create-transaction-btn-container'>
+      <button
+        onClick={() => setShowModal(true)}
+        className="create-transaction-btn"
+      >
+        Create new Transaction
+      </button>
+
+      <div>
+        <label htmlFor="excel-upload" className="import-button-label">
           Import Transactions (Excel)
-        </button> */}
+        </label>
+        <input
+          type="file"
+          id="excel-upload"
+          className="import-file-input"
+          accept=".xlsx, .xls"
+          onChange={handleExcelUpload}
+        />
+        <div className="filename-display">
+          {fileName ? `Selected file: ${fileName}` : "No file selected"}
+        </div>
       </div>
-      <div className='alert-message-container'>
-        {isError && (
-            <AlertMessage
-              type="error"
-              message={errorMessage}
-            />                                                                                      
-        )}
-        {isSuccess && (
-            <AlertMessage
-              type="success"
-              message={successMessage}
-            />
-        )}
-        {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+    </div>
 
-      </div>
+    <div className='alert-message-container'>
+      {isError && (
+          <AlertMessage
+            type="error"
+            message={errorMessage}
+          />                                                                                       
+      )}
+      {isSuccess && (
+          <AlertMessage
+            type="success"
+            message={successMessage}
+          />
+      )}
+      {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+    </div>
 
-      {/* Add the table below the Create Transaction button */}
-      <div className="transaction-table">
+     {/* Filter Section */}
+     <div className="filter-section-nnnnn">
+        <div style={{ maxWidth: '30%', float: 'right', marginRight: '50px', fontSize: '12px' }}>
+          <select
+            value={filters.category?.Name}
+            onChange={handleFilterChange}
+            name="category"
+            style={{ width: '300px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+          >
+            <option value="All" >Sort Categories</option>
+            <option value="All" style={{ color: 'black', fontSize: '16px', fontFamily: 'Arial', backgroundColor: '#f0f0f0' }}>All Categories</option>
 
-        <h3 className="table-title">Transaction Overview</h3>
-        <table className="table">
-          <thead>
-            <tr>
-            <th style={{ backgroundColor: "#b9e0f2" }}>Project Name</th>
-            <th style={{ backgroundColor: "#d1f2b9" }}>Category</th>
-            <th style={{ backgroundColor: "#d1b9f2" }}>Description</th>
-            <th style={{ backgroundColor: "#f2e3b9" }}>Quantity</th>
-            <th style={{ backgroundColor: "#d9b9f2" }}>Unit</th>
-            <th style={{ backgroundColor: "#d9b9f2" }}>Price</th>
-            <th style={{ backgroundColor: "#f2d9b9" }}>Amount</th>
-            <th style={{ backgroundColor: "#b9f2d9" }}>Payment Method</th>
-            <th style={{ backgroundColor: "#b9d1f2" }}>Recorded By</th>
-            <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
-            <th style={{ backgroundColor: "#f2d1b9" }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-             {/* Loop through the transactionData array and render each transaction */}
-             {transactionData.length > 0 ? (
-                transactionData
-                  ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  ?.map((transaction, index) => (
-                    // <tr key={index}>
-                    <tr
-                      key={transaction._id}
-                      className={index % 2 === 0 ? 'odd-row' : 'even-row'}
-                    >
-                      <td>{transaction.projectName}</td>
-                      <td>{transaction.category}</td>
-                      <td>{transaction.description}</td>
-                      <td>{transaction.quantity}</td>
-                      <td>{transaction.unit}</td>
-                      <td>{transaction.price}</td>
-                      <td>{transaction.amount}</td>
-                      <td>{transaction.paymentMethod}</td>
-                      <td>{transaction.recordedBy}</td>
-                      <td>{formatDate(transaction.date)}</td>
-                      <td> 
-                         <div className="flex space-x-3">
-                            <button
-                              onClick={() => handleUpdateTransaction(transaction._id)}
-                              className="text-blue-500 hover:text-blue-700"
-                            >
-                              <FaEdit />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(transaction._id)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <FaTrash />
-                            </button>
-                          </div>
-                      </td>
-                    </tr>
-                  ))
-              ) : (
-                <tr>
-                  <td colSpan="12">No transactions available</td>
-                </tr>
-              )}
+            {selectableCategories?.map((category) => (
+              <option key={category?._id} value={category?.category}>
+                {category?.category}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          </tbody>
-        </table>
-      </div>
+     </div>
 
-      {/* Modal to display the form */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 className="modal-title">Create Transaction</h2>
+
+    <div className="transaction-table">
+      <h3 className="table-title">Transaction Overview</h3>
+      <table className="table">
+        <thead>
+          <tr>
+          <th style={{ backgroundColor: "#b9e0f2" }}>Project Name</th>
+          <th style={{ backgroundColor: "#d1f2b9" }}>Category</th>
+          <th style={{ backgroundColor: "#d1b9f2" }}>Description</th>
+          <th style={{ backgroundColor: "#f2e3b9" }}>Quantity</th>
+          <th style={{ backgroundColor: "#d9b9f2" }}>Unit</th>
+          <th style={{ backgroundColor: "#d9b9f2" }}>Price</th>
+          <th style={{ backgroundColor: "#f2d9b9" }}>Amount</th>
+          <th style={{ backgroundColor: "#b9f2d9" }}>Payment Method</th>
+          <th style={{ backgroundColor: "#b9d1f2" }}>Recorded By</th>
+          <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
+          <th style={{ backgroundColor: "#f2d1b9" }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+           {transactionData.length > 0 ? (
+              transactionData
+                ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                ?.map((transaction, index) => (
+                  <tr key={transaction._id} className={index % 2 === 0 ? 'odd-row' : 'even-row'}>
+                    <td>{transaction.projectName}</td>
+                    <td>{transaction.category}</td>
+                    <td>{transaction.description}</td>
+                    <td>{transaction.quantity}</td>
+                    <td>{transaction.unit}</td>
+                    <td>{transaction.price}</td>
+                    <td>{transaction.amount}</td>
+                    <td>{transaction.paymentMethod}</td>
+                    <td>{transaction.recordedBy}</td>
+                    <td>{formatDate(transaction.date)}</td>
+                    <td> 
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => handleUpdateTransaction(transaction._id)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(transaction._id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+            ) : (
+              <tr>
+                <td colSpan="12">No transactions available</td>
+              </tr>
+            )}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Modal to display the form */}
+    {showModal && (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <h2 className="modal-title">Create Transaction</h2>
+          
+          {error && <div className="error-message">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="transaction-form">
+            <div className="form-group-categories">
+              <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
+            </div>
+            <div className="form-group-categories">
+              <CategorySelection category={category} setCategory={setCategory} />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Quantity</label>
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Unit</label>
+              <input
+                type="text"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Price</label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Amount</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Payment Method</label>
+              <input
+                type="text"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
             
-            {/* Error message if fields are empty */}
-            {error && <div className="error-message">{error}</div>}
+            <div className="form-group">
+              <label className="form-label">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
 
-            <form onSubmit={handleSubmit} className="transaction-form">
-              <div className="form-group-categories">
-                <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
-              </div>
-
-
-              <div className="form-group-categories">
-                <CategorySelection category={category} setCategory={setCategory} />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              {/* Fourth Row (Quantity and Unit) */}
-              <div className="form-group">
-                <label className="form-label">Quantity</label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Unit</label>
-                <input
-                  type="text"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Price</label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Amount</label>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Payment Method</label>
-                <input
-                  type="text"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="form-actions">
-                {switchToEditMode ? 
-                  <button
-                    type="button"
-                    className="submit-btn"
-                    onClick={() => handleSaveUpdatedTransaction()}
-                  >
-                    Update
-                  </button> :
-                  <button
-                    type="submit"
-                    className="submit-btn"
-                  >
-                    Submit
-                  </button>
-                }
-                
+            <div className="form-actions">
+              {switchToEditMode ? 
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    fetchTransactionData();
-                    resetForm();
-                    setSwitchToEditMode(false);
-                  }}
-                  className="close-btn"
+                  className="submit-btn"
+                  onClick={() => handleSaveUpdatedTransaction()}
                 >
-                  Close
+                  Update
+                </button> :
+                <button
+                  type="submit"
+                  className="submit-btn"
+                >
+                  Submit
                 </button>
-              </div>
-            </form>
-          </div>
+              }
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  fetchTransactionData();
+                  resetForm();
+                  setSwitchToEditMode(false);
+                }}
+                className="close-btn"
+              >
+                Close
+              </button>
+            </div>
+          </form>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
+
 };
 
-export default CreateTransaction;
-
-// Styles for the component (inside the same file)
 const style = document.createElement('style');
 style.innerHTML = `
+
+.filter-section-contain {
+  margin: 50px 20px;
+  display: block;
+  float: right;
+  max-width: 50%;
+  display: block;
+}
+.select-cat {
+  max-width: 20%
+}
+
+
+
+
 /* Styling for the Create Transaction form */
 .create-transaction-btn {
   background-color: #003366;
@@ -614,7 +651,7 @@ style.innerHTML = `
   border-radius: 4px;
   font-size: 16px;
   cursor: pointer;
-  max-width: 60%
+  max-width: 60%;
 }
 .create-transaction-btn-container {
   display: grid;
@@ -689,10 +726,6 @@ style.innerHTML = `
   justify-content: space-between;
   margin-top: 20px;
 }
-.form-group-categories{
-  margin-top: -24px;
-  margin-left: -20px;
-}
 
 .submit-btn {
   background-color: #003366;
@@ -739,20 +772,21 @@ style.innerHTML = `
   text-align: left;
   font-size: 13px;
 }
+
 .alert-message-container {
-  position: fixed; /* Keep it fixed at the top */
-  top: 20%; /* Adjust position from top */
+  position: fixed;
+  top: 20%;
   left: 50%;
-  transform: translateX(-50%); /* Center it horizontally */
+  transform: translateX(-50%);
   padding: 15px 30px;
-  max-width: 40%; 
+  max-width: 40%;
   width: 100%;
   z-index: 1000;
 }
 
-  /* Container for the import button */ 
+/* Container for the import button */ 
 .import-button-label {
-  background-color: #003366; /* Dark blue */
+  background-color: #003366;
   color: white;
   padding: 10px 24px;
   font-size: 1rem;
@@ -762,21 +796,18 @@ style.innerHTML = `
   transition: background-color 0.3s ease, transform 0.2s ease;
   display: inline-block;
   text-align: center;
-  margin-left: -150px; /* space between button and filename display */
+  margin-left: -150px;
 }
 
-/* Hover effect for the label */
 .import-button-label:hover {
-  background-color: #002244; /* Slightly darker blue */
-  transform: translateY(-2px); /* Elevate button effect */
+  background-color: #002244;
+  transform: translateY(-2px);
 }
 
-/* Input file styling: Hide the default file input */
 .import-file-input {
-  display: none; /* Hide the default file input */
+  display: none;
 }
 
-/* Style the filename display */
 .filename-display {
   font-size: 0.9rem;
   color: #4a4a4a;
@@ -784,19 +815,88 @@ style.innerHTML = `
   font-weight: 400;
 }
 
-/* Optional: add focus effect on label when input is focused */
 .import-file-input:focus + .import-button-label {
-  border: 2px solid #3b82f6; /* Blue border on focus */
-  box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); /* Blue glow */
-}
-  /* styles.css */
-.odd-row {
-  background-color: #ffffff; /* White */
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
 }
 
-.even-row {
-  background-color: #f0f0f0; /* Light Gray */
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .create-transaction-btn-container {
+    grid-template-columns: 1fr;
+    margin-left: 20px;
+    margin-top: 50px;
+    margin-bottom: 20px;
+    padding: 10px;
+  }
+
+  .create-transaction-btn {
+    max-width: 100%;
+    font-size: 14px;
+  }
+
+  .modal-content {
+    width: 90%;
+    padding: 15px;
+  }
+
+  .modal-title {
+    font-size: 20px;
+  }
+
+  .transaction-form {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .form-input {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .transaction-table {
+    margin: 20px;
+  }
+
+  .table {
+    font-size: 12px;
+  }
+
+  .table th {
+    font-size: 12px;
+  }
+
+  .table td {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .import-button-label {
+    font-size: 14px;
+    padding: 8px 16px;
+    margin-left: 0;
+  }
+
+  .filename-display {
+    font-size: 0.8rem;
+    padding-top: 6px;
+  }
+
+  .close-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .alert-message-container {
+    max-width: 90%;
 }
+/* Filter section */
 
 `;
 document.head.appendChild(style);
+
+export default CreateTransaction;
+

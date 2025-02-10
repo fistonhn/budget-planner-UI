@@ -153,14 +153,14 @@ export default function PrivateNavbar() {
                   Add Transaction
                 </Disclosure.Button>
               </Link>
-              <Link to="/add-category" onClick={() => handleItemClick("addCategory")}>
+              {/* <Link to="/add-category" onClick={() => handleItemClick("addCategory")}>
                 <Disclosure.Button
                   as="button"
                   className={`block border-l-4 ${selectedItem === "addCategory" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
                 >
                   Add Category
                 </Disclosure.Button>
-              </Link>
+              </Link> */}
               <Link to="/profile" onClick={() => handleItemClick("profile")}>
                 <Disclosure.Button
                   as="button"
