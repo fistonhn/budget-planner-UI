@@ -93,6 +93,7 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
 
   return (
     <div className="container">
+      
       <h2>Select Project</h2>
 
       {/* Custom Dropdown for Projects with Search */}

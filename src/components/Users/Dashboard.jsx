@@ -3,6 +3,7 @@ import axios from "axios";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { BASE_URL } from "../../utils/url";
+import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
 import ProjectSelection from "../Category/AddProject";
 
@@ -11,13 +12,17 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 const TransactionOverview = () => {
   const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
-  const [expandedCategory, setExpandedCategory] = useState(null); // Track the expanded row
+  const [expandedCategory, setExpandedCategory] = useState(null); 
 
-  // Fetch projects and transactions data
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  
+    const [isSuccess, setIsSuccess] = useState(false);
+
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -29,14 +34,26 @@ const TransactionOverview = () => {
   }, [selectedProject]);
 
   const fetchProjects = async () => {
+    setIsLoading(true)
     try {
       const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const projectsData = prjResponse?.data?.myProjects || [];
       const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
       setProjects(sortedProjects);
       setSelectedProject(sortedProjects[0]?.name);
+
+      setIsLoading(false)
+      setIsSuccess(true);
+      setSuccessMessage("Project Report Displayed successfully.");
+
+      setTimeout(() => {
+        setIsSuccess(false);
+        setSuccessMessage("")
+      }, 3000);
+
     } catch (err) {
       console.error("Error fetching Projects", err);
     }
@@ -147,9 +164,6 @@ const TransactionOverview = () => {
     setSelectedProject(event.target.value);
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error loading transactions data</div>;
-
   const processedData = processData(transactions);
 
   const cellStyle = {
@@ -177,7 +191,21 @@ const TransactionOverview = () => {
 
   return (
     <div>      
-
+      <div className='alert-message-container'>
+        {isError && (
+          <AlertMessage
+              type="error"
+              message={errorMessage}
+          />                                                                                       
+        )}
+        {isSuccess && (
+          <AlertMessage
+              type="success"
+              message={successMessage}
+          />
+        )}
+        {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+      </div>
       {/* Chart */}
       <div className="my-8 p-6 bg-white rounded-lg shadow-xl border border-gray-200">
         <h1 className="text-2xl font-bold text-center mb-6">Transaction Overview</h1>

@@ -122,6 +122,13 @@ export default function PrivateNavbar() {
                 </Disclosure.Button>
               </Link>
               <Link
+                to="/project"
+                onClick={() => handleItemClick("project")}
+                className={`block border-l-4 ${selectedItem === "project" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
+              >
+                Projects
+              </Link>
+              <Link
                 to="/income"
                 onClick={() => handleItemClick("income")}
                 className={`block border-l-4 ${selectedItem === "income" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
