@@ -1,259 +1,243 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import { listTransactionsAPI } from "../../services/transactions/transactionService";
-import { listCategoriesAPI } from "../../services/category/categoryService";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { BASE_URL } from "../../utils/url";
+import { getUserFromStorage } from "../../utils/getUserFromStorage";
+import ProjectSelection from "../Category/AddProject";
 
-const TransactionList = () => {
-  const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
-    category: "",
-  });
+const token = getUserFromStorage();
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-  };
+const Table = () => {
+    const [data, setData] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [selectedProject, setSelectedProject] = useState("");
+    const [expandedCategory, setExpandedCategory] = useState(null); // Track the expanded row
 
-  // Fetching categories
-  const { data: categoriesData } = useQuery({
-    queryFn: listCategoriesAPI,
-    queryKey: ["list-categories"],
-  });
+    useEffect(() => {
+      fetchProjects();
+    }, []);
+  
+    useEffect(() => {
+      if (selectedProject) {
+        fetchData();
+      }
+    }, [selectedProject]);
 
-  // Fetching transactions
-  const { data: transactions } = useQuery({
-    queryFn: () => listTransactionsAPI(filters),
-    queryKey: ["list-transactions", filters],
-  });
+    const fetchProjects = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/projects/lists`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+    
+        const projects = response?.data?.myProjects || [];
+    
+        // Sort projects by updatedAt in descending order (latest updated first)
+        const sortedProjects = projects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    
+        // Set the latest updated project as selected by default
+        if (sortedProjects.length > 0) {
+          setSelectedProject(sortedProjects[0]?.name); // Set default project
+        }
+    
+        setProjects(sortedProjects); // Save all projects in state
+      } catch (err) {
+        console.error("Error fetching Projects", err);
+      }
+    };
+    
 
-  // Format the date for the table
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString();
-  };
+    const fetchData = async () => {
+      try {
+        const selectedprojectName = {
+          projectName: selectedProject
+        }
+        const datResponse = await axios.post(`${BASE_URL}/report/listsByProject`, selectedprojectName, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // console.log("datResponse", datResponse);
 
-  return (
-    <div className="transaction-list-container">
-      {/* Filter Section */}
-      <div className="filter-section">
-        <div className="filter-inputs">
-          {/* Start Date */}
-          <input
-            type="date"
-            name="startDate"
-            value={filters.startDate}
-            onChange={handleFilterChange}
-            className="filter-input"
-          />
-          {/* End Date */}
-          <input
-            value={filters.endDate}
-            onChange={handleFilterChange}
-            type="date"
-            name="endDate"
-            className="filter-input"
-          />
-          {/* Category */}
-          <div className="select-wrapper">
-            <select
-              value={filters.category}
-              onChange={handleFilterChange}
-              name="category"
-              className="filter-select"
-            >
-              <option value="All">All Categories</option>
-              <option value="Uncategorized">Uncategorized</option>
-              {categoriesData?.map((category) => (
-                <option key={category?._id} value={category?.Name}>
-                  {category?.Name}
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="chevron-icon" />
-          </div>
+        // Process data to remove duplicated categories and sum both incomeAmount and expenseAmount
+        const processedData = processData(datResponse.data.myReports);
+        setData(processedData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    const processData = (data) => {
+      const aggregatedData = data.reduce((acc, item) => {
+        if (!acc[item.category]) {
+          acc[item.category] = {
+            category: item.category,
+            incomeAmount: 0,
+            expenseAmount: 0,
+            updatedAt: item.updatedAt,
+            descriptions: [],
+          };
+        }
+
+        acc[item.category].incomeAmount += item.incomeAmount || 0;
+        acc[item.category].expenseAmount += item.expenseAmount || 0;
+        acc[item.category].descriptions.push(item);  // Keep the full item with its income/expense
+
+        if (new Date(item.updatedAt) > new Date(acc[item.category].updatedAt)) {
+          acc[item.category].updatedAt = item.updatedAt;
+        }
+
+        return acc;
+      }, {});
+
+      const aggregatedArray = Object.values(aggregatedData).map((item) => ({
+        ...item,
+        profit: item.incomeAmount - item.expenseAmount,
+      }));
+
+      return aggregatedArray.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    };
+
+    const handleProjectChange = (event) => {
+      setSelectedProject(event.target.value);
+      // console.log("selectedProject", selectedProject)
+    };
+
+    const formatNumber = (number) => {
+      // Replace NaN with 0 and format the number
+      return new Intl.NumberFormat().format(isNaN(number) ? 0 : number);
+    };
+
+    const handleRowClick = (category) => {
+      setExpandedCategory(expandedCategory === category ? null : category); // Toggle expanded row
+    };
+
+    // Styles
+    const containerStyle = {
+        display: "flex",
+        justifyContent: "flex-start",
+        alignItems: "flex-start",
+        flexDirection: "column",
+        padding: "20px",
+    };
+
+    const sectionStyle = {
+        width: "100%",
+        marginTop: "20px", 
+        marginLeft: "auto", 
+        marginRight: "auto", 
+        maxWidth: "1200px", 
+    };
+
+    const tableContainerStyle = {
+        ...sectionStyle, // Same as sectionStyle for margin
+        border: "2px solid black",
+        borderCollapse: "collapse",
+    };
+
+    const tableStyle = {
+        width: "100%",
+        borderCollapse: "collapse",
+        fontFamily: "Arial, sans-serif",
+    };
+    
+    const cellStyle = {
+        border: "1px solid black",
+        padding: "8px",
+        textAlign: "left",
+    };
+
+    const categoriesHeaderStyle = {
+        ...cellStyle,
+        backgroundColor: "#d1e7e0", // Light green (for categories)
+    };
+
+    const incomeHeaderStyle = {
+        ...cellStyle,
+        backgroundColor: "#cce0ff", // Light blue (for income)
+    };
+
+    const expenseHeaderStyle = {
+        ...cellStyle,
+        backgroundColor: "#a8c6e8", // Lighter blue (for expense)
+    };
+
+    const profitHeaderStyle = {
+        ...cellStyle,
+        backgroundColor: "#ffcccc", // Light red (for profit)
+    };
+
+    const negativeStyle = {
+        color: "red",
+    };
+
+    return (
+        <div style={containerStyle}>
+            {/* Project Selection */}
+            <div style={sectionStyle}>
+                <div 
+                  style={{
+                    width: '30%', 
+                    marginBottom: '-20px',
+                    '@media (max-width: 768px)': {
+                      width: '100%',
+                    }
+                  }}
+                >
+                  <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
+                </div>
+            </div>
+
+            {/* Table Container */}
+            <div style={tableContainerStyle}>
+                <table style={tableStyle}>
+                    <thead>
+                        <tr>
+                            <th style={categoriesHeaderStyle}>Categories</th>
+                            <th style={incomeHeaderStyle}>Income</th>
+                            <th style={expenseHeaderStyle}>Expense</th>
+                            <th style={profitHeaderStyle}>Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data?.map((item, index) => (
+                            <>
+                                <tr
+                                    key={index}
+                                    onClick={() => handleRowClick(item.category)}
+                                    style={{ cursor: "pointer" }}
+                                >
+                                    <td style={cellStyle}>{item.category}</td>
+                                    <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
+                                    <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
+                                    <td style={{ ...profitHeaderStyle, ...(item.profit < 0 ? negativeStyle : {}) }}>
+                                        {formatNumber(item.profit)}
+                                    </td>
+                                </tr>
+
+                                {/* Render expanded descriptions below the category row if it's expanded */}
+                                {expandedCategory === item.category && (
+                                    item.descriptions
+                                    ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                                    ?.map((descItem, descIndex) => (
+                                        <tr key={`${index}-desc-${descIndex}`}>
+                                            <td style={{border: "1px solid gray", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray"}}>{descItem.description}</td> {/* Description under Category */}
+                                            <td style={{ border: "1px solid gray", backgroundColor: "#cce0ff", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray" }}>
+                                                {formatNumber(descItem.incomeAmount)}
+                                            </td>
+                                            <td style={{ border: "1px solid gray", backgroundColor: "#a8c6e8", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray" }}>
+                                                {formatNumber(descItem.expenseAmount)}
+                                            </td>
+                                            <td style={{ border: "1px solid gray", backgroundColor: "#ffcccc", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray",
+                                              ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0 ? negativeStyle : {}) }}>
+                                                {formatNumber((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0))}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </div>
-
-      {/* Displaying Filtered Transactions */}
-      <div className="transaction-table-container">
-        <div className="table-wrapper">
-          <table className="transaction-table">
-            <thead>
-              <tr>
-                <th className="project-column">Project</th>
-                <th className="category-column">Category</th>
-                <th className="type-column">Type</th>
-                <th className="amount-column">Amount</th>
-                <th className="description-column">Description</th>
-                <th className="date-column">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions?.length > 0 ? (
-                transactions
-                  .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  .map((transaction, index) => (
-                    <tr
-                      key={transaction._id}
-                      className={index % 2 === 0 ? "even-row" : "odd-row"}
-                    >
-                      <td>{transaction?.projectName}</td>
-                      <td>{transaction?.category || "Uncategorized"}</td>
-                      <td
-                        className={`${
-                          transaction.type === "income"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {transaction.type?.charAt(0).toUpperCase() +
-                          transaction.type?.slice(1) ||
-                          "Expense"}
-                      </td>
-                      <td>${transaction.amount.toLocaleString()}</td>
-                      <td>{transaction.description || "No Description"}</td>
-                      <td>{formatDate(transaction.date)}</td>
-                    </tr>
-                  ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="no-transactions">
-                    No transactions available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <style jsx>{`
-        /* Container for the whole list */
-        .transaction-list-container {
-          margin: 1rem;
-          padding: 1rem;
-          background-color: #ffffff;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          border-radius: 8px;
-        }
-
-        /* Filter section */
-        .filter-section {
-          display: flex;
-          justify-content: flex-end; /* Align to the right side */
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-
-        .filter-inputs {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr); /* Equal width for all inputs */
-          gap: 0.75rem;
-          width: 100%;
-          max-width: 600px; /* Limit max width of filters */
-        }
-
-        .filter-input,
-        .filter-select {
-          padding: 0.25rem;
-          font-size: 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 8px;
-          transition: all 0.3s ease;
-          width: 100%; /* Ensure inputs take full available width */
-        }
-
-        .filter-input:focus,
-        .filter-select:focus {
-          border-color: #3b82f6;
-          outline: none;
-          box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
-        }
-
-        /* Select wrapper */
-        .select-wrapper {
-          position: relative;
-          margin-right: 80px;
-        }
-
-        .chevron-icon {
-          position: absolute;
-          right: 0.25rem;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 12px;
-          height: 12px;
-          color: #6b7280;
-        }
-
-        /* Table wrapper with margin */
-        .table-wrapper {
-          margin: 0 1rem; /* Add margin on left and right side */
-        }
-
-        /* Table styles */
-        .transaction-table {
-          width: 92%;
-          border-collapse: collapse;
-          text-align: left;
-          margin-top: 1rem;
-          font-size: 0.75rem; /* Even smaller table font size */
-        }
-
-        .transaction-table th,
-        .transaction-table td {
-          padding: 0.25rem; /* Smaller padding */
-          border: 1px solid #e5e7eb;
-        }
-
-        /* Individual column colors */
-        .project-column {
-          background-color: #bfdbfe;
-          color: #374151;
-        }
-
-        .category-column {
-          background-color: #d1fae5;
-          color: #374151;
-        }
-
-        .type-column {
-          background-color: #fef08a;
-          color: #374151;
-        }
-
-        .amount-column {
-          background-color: #f4aab6;
-          color: #374151;
-        }
-
-        .description-column {
-          background-color: #e9d5ff;
-          color: #374151;
-        }
-
-        .date-column {
-          background-color: #d1d5db;
-          color: #374151;
-        }
-
-        .even-row {
-          background-color: #f9fafb;
-        }
-
-        .odd-row {
-          background-color: #ffffff;
-        }
-
-        .no-transactions {
-          text-align: center;
-          padding: 0.75rem;
-          color: #6b7280;
-        }
-      `}</style>
-    </div>
-  );
+    );
 };
 
-export default TransactionList;
+export default Table;

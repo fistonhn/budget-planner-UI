@@ -49,9 +49,9 @@ const CreateTransaction = () => {
     fetchCategories();
 
     if (quantity && price) {
-      setAmount(quantity * price); // Update amount whenever quantity or price changes
+      setAmount(quantity * price);
     } else {
-      setAmount(0); // Reset amount if quantity or price is not provided
+      setAmount(0);
     }
 
   }, [quantity, price]);
@@ -126,9 +126,6 @@ const CreateTransaction = () => {
       paymentMethod,
       price,
     };
-
-    // projectName
-
     try {
       setIsLoading(true);
       await axios.post(`${BASE_URL}/transactions/create`, transactionData,
@@ -197,11 +194,13 @@ const CreateTransaction = () => {
 
     const dataToEdit = transactionData.find((transaction) => transaction._id === id);
 
+    console.log("dataToEditdataToEditdataToEdit", dataToEdit)
+
     setAmount(dataToEdit.amount);
     setCategory(dataToEdit.category);
     setDate(dataToEdit.date);
     setDescription(dataToEdit.description);
-    setSelectedProject(dataToEdit.selectedProject);
+    setSelectedProject(dataToEdit.projectName);
     setQuantity(dataToEdit.quantity);
     setUnit(dataToEdit.unit);
     setPaymentMethod(dataToEdit.paymentMethod);
@@ -369,6 +368,15 @@ const CreateTransaction = () => {
     }
   };
 
+  const handleDownload = () => {
+    // Trigger the file download
+    const link = document.createElement('a');
+    link.href = '/transactionData.xlsx'; // Path to the Excel file in the public folder
+    link.download = 'transactionData.xlsx'; // The name of the downloaded file
+    link.click(); // Simulate the click to trigger the download
+  };
+  
+
 return (
   <div>
     {/* Button to open the modal */}
@@ -391,10 +399,14 @@ return (
           accept=".xlsx, .xls"
           onChange={handleExcelUpload}
         />
+        <div>
+          <button className="example-btn" onClick={handleDownload}>Click here to Download Example File Format</button>
+        </div>
         <div className="filename-display">
           {fileName ? `Selected file: ${fileName}` : "No file selected"}
         </div>
       </div>
+      
     </div>
 
     <div className='alert-message-container'>
@@ -425,11 +437,15 @@ return (
             <option value="All" >Sort Categories</option>
             <option value="All" style={{ color: 'black', fontSize: '16px', fontFamily: 'Arial', backgroundColor: '#f0f0f0' }}>All Categories</option>
 
-            {selectableCategories?.map((category) => (
-              <option key={category?._id} value={category?.category}>
-                {category?.category}
-              </option>
-            ))}
+            {
+            // Remove duplicates by creating a Set from the categories and mapping them
+            [...new Set(selectableCategories?.map((category) => category?.category))].map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))
+            }
+
           </select>
         </div>
 
@@ -807,6 +823,18 @@ style.innerHTML = `
 .import-file-input {
   display: none;
 }
+.example-btn {
+  margin-left: -148px;
+  font-size: 12px;
+  font-style: italic;
+}
+.example-btn:hover {
+  background-color: #002244;
+  color: white;
+  font-size: 16px;
+  padding: 5px;
+  transform: translateY(-2px);
+}
 
 .filename-display {
   font-size: 0.9rem;
@@ -822,6 +850,10 @@ style.innerHTML = `
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
+  .example-btn {
+    margin-left: -10px;
+    white-space: nowrap;
+  }
   .create-transaction-btn-container {
     grid-template-columns: 1fr;
     margin-left: 20px;

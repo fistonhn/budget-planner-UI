@@ -12,7 +12,7 @@ function classNames(...classes) {
 }
 
 export default function PrivateNavbar() {
-  const [selectedItem, setSelectedItem] = useState("dashboard"); // Default selected item
+  const [selectedItem, setSelectedItem] = useState("");
 
   // Dispatch
   const dispatch = useDispatch();
@@ -52,15 +52,6 @@ export default function PrivateNavbar() {
                   {/* Logo */}
                   <SiAuthy className="h-8 w-auto text-green-500" />
                 </div>
-                {/* <div className="hidden md:ml-6 md:flex md:space-x-8">
-                  <Link
-                    to="/"
-                    onClick={() => handleItemClick("budgetTracker")}
-                    className={`inline-flex items-center border-b-2 ${selectedItem === "budgetTracker" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
-                  >
-                    Budget Tracker
-                  </Link>
-                </div> */}
 
                 <div className="hidden md:ml-6 md:flex md:space-x-8">
                 <Link
@@ -71,11 +62,18 @@ export default function PrivateNavbar() {
                     Dashboard
                   </Link>
                   <Link
-                    to="/budget"
-                    onClick={() => handleItemClick("budget")}
-                    className={`inline-flex items-center border-b-2 ${selectedItem === "budget" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
+                    to="/project"
+                    onClick={() => handleItemClick("project")}
+                    className={`inline-flex items-center border-b-2 ${selectedItem === "project" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
                   >
-                    Import contract BOQ
+                    Projects
+                  </Link>
+                  <Link
+                    to="/income"
+                    onClick={() => handleItemClick("income")}
+                    className={`inline-flex items-center border-b-2 ${selectedItem === "income" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
+                  >
+                    Income
                   </Link>
                 </div>
 
@@ -87,13 +85,6 @@ export default function PrivateNavbar() {
                   >
                     Add Transaction
                   </Link>
-                  {/* <Link
-                    to="/add-category"
-                    onClick={() => handleItemClick("addCategory")}
-                    className={`inline-flex items-center border-b-2 ${selectedItem === "addCategory" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
-                  >
-                    Add Category
-                  </Link> */}
                   <Link
                     to="/profile"
                     onClick={() => handleItemClick("profile")}
@@ -122,14 +113,6 @@ export default function PrivateNavbar() {
           {/* Mobile Navs private links */}
           <Disclosure.Panel className="md:hidden">
             <div className="space-y-1 pb-3 pt-2">
-              {/* <Link to="/" onClick={() => handleItemClick("budgetTracker")}>
-                <Disclosure.Button
-                  as="button"
-                  className={`block border-l-4 ${selectedItem === "budgetTracker" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
-                >
-                  Budget Tracker
-                </Disclosure.Button>
-              </Link> */}
               <Link to="/dashboard" onClick={() => handleItemClick("dashboard")}>
                 <Disclosure.Button
                   as="button"
@@ -139,11 +122,11 @@ export default function PrivateNavbar() {
                 </Disclosure.Button>
               </Link>
               <Link
-                to="/budget"
-                onClick={() => handleItemClick("budget")}
-                className={`inline-flex items-center border-b-2 ${selectedItem === "budget" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
+                to="/income"
+                onClick={() => handleItemClick("income")}
+                className={`block border-l-4 ${selectedItem === "income" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
               >
-                Import contract BOQ
+                Income
               </Link>
               <Link to="/add-transaction" onClick={() => handleItemClick("addTransaction")}>
                 <Disclosure.Button
@@ -153,14 +136,6 @@ export default function PrivateNavbar() {
                   Add Transaction
                 </Disclosure.Button>
               </Link>
-              {/* <Link to="/add-category" onClick={() => handleItemClick("addCategory")}>
-                <Disclosure.Button
-                  as="button"
-                  className={`block border-l-4 ${selectedItem === "addCategory" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
-                >
-                  Add Category
-                </Disclosure.Button>
-              </Link> */}
               <Link to="/profile" onClick={() => handleItemClick("profile")}>
                 <Disclosure.Button
                   as="button"

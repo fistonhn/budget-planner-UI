@@ -6,45 +6,73 @@ import axios from "axios";
 
 const token = getUserFromStorage();
 
-// Button Component
-const Button = ({ onClick, label, isLoading, isDisabled, className }) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={isDisabled || isLoading}
-      className={`btn ${className} ${isLoading ? "loading" : ""}`}
-    >
-      {isLoading ? "Loading..." : label}
-    </button>
-  );
-};
-
-// Main Component for Project Selection & Addition
+// Main Component for Project Selection
 const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [transactionDatProjects, setTransactionDataProjects] = useState([]);
+
 
   useEffect(() => {
     fetchProjects();
+    fetchTransactionProjects();
+    allAvProjects();
   }, []);
+
+
+  const allAvProjects = () => {
+    const array1 = transactionDatProjects;
+    
+    const array2 = filteredProjects
+    
+    // Convert array2 objects to have 'projectName' field
+    const formattedArray2 = array2.map(item => ({
+      ...item,
+      projectName: item.name
+    }));
+    
+    // Combine both arrays
+    const combinedArray = [...array1, ...formattedArray2];
+    // Remove duplicates based on projectName
+    const uniqueArray = Array.from(new Map(combinedArray.map(item => [item.projectName, item])).values());
+    setFilteredProjects(uniqueArray)
+    setProjects(uniqueArray)
+        
+  }
+
+  const openDropDown = () => {
+    setDropdownOpen(!dropdownOpen)
+    allAvProjects()
+  }
+
+  const fetchTransactionProjects = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/transactions/lists`, 
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setTransactionDataProjects(response.data);
+      // setSelectableCategories(response.data)
+
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    }
+  };
 
   const fetchProjects = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/budget/lists`, {
+      const response = await axios.get(`${BASE_URL}/projects/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setProjects(response.data);
-      setFilteredProjects(response.data);
-      setIsLoading(false);
+
+      setProjects(response.data.myProjects);
+      setFilteredProjects(response.data.myProjects);
     } catch (err) {
-      setIsLoading(false);
       console.error("Error fetching projects", err);
     }
   };
@@ -54,45 +82,8 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
     setDropdownOpen(false); // Close the dropdown after selecting
   };
 
-  const handleAddProject = async () => {
-    if (!newProjectName) {
-      setError("Please enter a project name.");
-      return;
-    }
-
-    // const projectData = {
-    //     projectName,
-    //     teamEmails: emailArray,
-    //     budgetData: data
-    //   };
-
-    const formData = { projectName: newProjectName, teamEmails: [], budgetData: [] };
-
-    try {
-      await axios.post(
-        `${BASE_URL}/budget/create`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setNewProjectName("");
-      setIsSuccess(true);
-      setSuccessMessage("Project added successfully");
-      setIsLoading(false);
-
-      fetchProjects(); // Refresh the project list
-
-      setTimeout(() => setIsSuccess(false), 3000);
-    } catch (err) {
-      setError("Project already exists or is Invalid!");
-      setIsLoading(false);
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-
-    console.log(e.target.value)
 
     const filtered = projects?.filter((project) =>
       project.projectName.toLowerCase().includes(e.target.value.toLowerCase())
@@ -102,37 +93,19 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
 
   return (
     <div className="container">
-      <h2>Projects</h2>
+      <h2>Select Project</h2>
 
       {/* Custom Dropdown for Projects with Search */}
       <div className="dropdown-container">
         <div
           className="dropdown-toggle"
-          onClick={() => setDropdownOpen(!dropdownOpen)}
+          onClick={openDropDown}
         >
           {selectedProject ? selectedProject : "Search or select a project"}
         </div>
 
         {dropdownOpen && (
           <div className="dropdown-menu">
-            {/* Add Project Form */}
-            <div className="add-project-form">
-              <input
-                type="text"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="Enter new project name"
-                className="form-input"
-              />
-              <Button
-                onClick={handleAddProject}
-                label="Add Project"
-                isLoading={isLoading}
-                isDisabled={!newProjectName}
-                className="add-project-btn"
-              />
-            </div>
-
             {/* Search Field */}
             <input
               type="text"
@@ -158,64 +131,11 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
           </div>
         )}
       </div>
-
-      <div className="alert-message-container">
-        {error && <AlertMessage type="error" message={error} />}
-        {isSuccess && <AlertMessage type="success" message={successMessage} />}
-        {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
-      </div>
-
       <style jsx>{`
         .container {
-          padding: 20px;
           font-family: Arial, sans-serif;
         }
 
-        .btn {
-          background-color: #003366;
-          color: white;
-          padding: 12px 24px;
-          font-size: 14px;
-          font-weight: 600;
-          border-radius: 5px;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-
-        .btn:hover {
-          background-color: #002244;
-        }
-
-        .loading {
-          background-color: #7d7d7d;
-          cursor: not-allowed;
-        }
-
-        .btn:disabled {
-          background-color: #ccc;
-          cursor: not-allowed;
-        }
-
-        .form-input {
-          padding: 12px;
-          font-size: 14px;
-          width: 100%;
-          border: 1px solid #ccc;
-          border-radius: 5px;
-          margin-bottom: 10px;
-          transition: border-color 0.3s;
-        }
-
-        .form-input:focus {
-          border-color: #003366;
-          outline: none;
-        }
-
-        .add-project-btn {
-          margin-top: 10px;
-        }
-
-        /* Custom Dropdown Styles */
         .dropdown-container {
           position: relative;
           margin-bottom: 20px;
@@ -280,10 +200,6 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
           padding: 12px;
           font-size: 14px;
           color: #888;
-        }
-
-        .add-project-form {
-          margin-bottom: 10px;
         }
       `}</style>
     </div>

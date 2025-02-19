@@ -8,8 +8,11 @@ import { getUserFromStorage } from "../../utils/getUserFromStorage";
 const ExcelTableImporter = () => {
   const [data, setData] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [projectName, setProjectName] = useState('');
-  const [emails, setEmails] = useState('');
+  // const [projectName, setProjectName] = useState('');
+  const [selectedProject, setSelectedProject] = useState("");
+  const [progress, setProgress] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -27,18 +30,32 @@ const ExcelTableImporter = () => {
   ]);
   const [error, setError] = useState(null);
 
-  const handleProjectNameChange = (e) => {
-    setProjectName(e.target.value);
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/projects/lists`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setProjects(response?.data?.myProjects);
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Error fetching projects", err);
+    }
   };
 
-  // Handle changes in the team mates emails input field
-  const handleEmailsChange = (e) => {
-    setEmails(e.target.value);
+  // Handle changes in the team mates progress input field
+  const handleProgressChange = (e) => {
+    setProgress(e.target.value);
   };
 
   const togglePopup = () => {
     setIsOpen(!isOpen);
-    setData([]);
+    // setData([]);
   }
 
   const headerColors = {
@@ -53,27 +70,6 @@ const ExcelTableImporter = () => {
   const categoryRowColor = "#d3d3d3";
   const invalidCodeColor = "#003366";
   const token = getUserFromStorage();
-
-//   const fetchData = async () => {
-//     try {
-//       const response = await axios.get(`${BASE_URL}/budget/lists`, 
-//         { 
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//           },
-//         }
-//       );
-//       console.log("Data fetched successfully:", response.data);
-//       setData(response.data);
-//     } catch (err) {
-//       setError("Failed to fetch data");
-//       console.error("Error fetching data:", err);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchData();
-//   }, []);
 
   const sendDataToDatabase = async () => {
 
@@ -91,18 +87,17 @@ const ExcelTableImporter = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const emailArray = emails.split(',').map(email => email.trim());
 
     // Prepare the data to send
-    const projectData = {
-      projectName,
-      teamEmails: emailArray,
-      budgetData: data
+    const budgetData = {
+      projectName: selectedProject,
+      progress,
+      budgetData: data,
     };
 
     try {
       setIsLoading(true);
-      await axios.post(`${BASE_URL}/budget/create`, projectData, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`${BASE_URL}/budget/importIncomes`, budgetData, { headers: { Authorization: `Bearer ${token}` } });
       setIsLoading(false);
       setSuccessMessage("Project Budget saved successfully");
       setIsSuccess(true);
@@ -111,8 +106,7 @@ const ExcelTableImporter = () => {
         setIsSuccess(false); 
         setIsOpen(!isOpen);
         setData([]);
-        setProjectName('');
-        setEmails('');
+        setProgress('');
 
      }, 4000);
      
@@ -128,6 +122,13 @@ const ExcelTableImporter = () => {
     }
   }
 
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = '/BudgetData.xlsx';
+    link.download = 'BudgetData.xlsx';
+    link.click();
+  };
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -137,8 +138,6 @@ const ExcelTableImporter = () => {
         const wb = XLSX.read(abuf, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]]; 
         const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-        console.log("Raw Data from Excel:", jsonData);
 
         const processedData = jsonData.slice(1).map((row) => {
           return {
@@ -155,7 +154,6 @@ const ExcelTableImporter = () => {
           return row.Code || row.Description || row.Quantity || row.UOM || row.Rate || row.Amount;
         });
 
-        console.log("Filtered Data:", filteredData);
         setData(filteredData);
       };
       reader.readAsArrayBuffer(file);
@@ -224,13 +222,19 @@ const ExcelTableImporter = () => {
     return {};
   };
 
+  const handleSelectProject = (e) => {
+    setSelectedProject(e.target.value);
+  };
+
   return (
     <div className="table-container">
       {/* Popup Form */}
       {isOpen && (
         <div style={styles.popupOverlay}>
           <div style={styles.popupContainer}>
-            <h2>Create a New Project for imported BOQ</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#000000', textAlign: 'center', marginBottom: '20px' }}>
+              Adjust project progress
+            </h2> 
             {isError && (
                 <AlertMessage
                     type="error"
@@ -244,27 +248,48 @@ const ExcelTableImporter = () => {
                 />
             )}
             <form onSubmit={handleSubmit}>
+
+              <div>
+                <label style={{ fontStyle: 'italic', fontSize: '14px', marginRight: '10px' }}>
+                  Select Project:
+                </label>
+                  <select
+                    id="project-select"
+                    value={selectedProject}
+                    onChange={handleSelectProject}
+                    style={{
+                      marginBottom: '10px',
+                      marginTop: '5px',
+                      padding: '10px',
+                      fontSize: '14px',
+                      borderRadius: '4px',
+                      border: '1px solid #ccc',
+                      cursor: 'pointer',
+                      width: '100%'
+                    }}
+                  >
+                    <option value="">-- Select a project --</option>
+                    {projects?.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>           
+              </div>
+              
               <div style={styles.formField}>
-                <label>Project Name*</label>
+              <label style={{ fontStyle: 'italic', fontSize: '14px' }}>
+                Enter Project Progress % (Optional)
+              </label>
                 <input
-                  type="text"
-                  placeholder="Enter project name"
-                  value={projectName}
-                  onChange={handleProjectNameChange}
-                  required
+                  type="number"
+                  placeholder="%"
+                  value={progress}
+                  onChange={handleProgressChange}
                   style={styles.input}
                 />
               </div>
-              <div style={styles.formField}>
-                <label>Team Mates Emails (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Separate emails with commas"
-                  value={emails}
-                  onChange={handleEmailsChange}
-                  style={styles.input}
-                />
-              </div>
+
               {error && <div style={styles.error}>{error}</div>}
               <div style={styles.formActions}>
                 <button type="button" onClick={togglePopup} style={styles.cancelButton}>
@@ -303,9 +328,12 @@ const ExcelTableImporter = () => {
         onChange={handleFileUpload}
         style={{ display: 'none' }} 
       />
+      <div>
+        <button className="example-format-btn" onClick={handleDownload}>Click here to Download Example File Format</button>
+      </div>
       <div className="send-data-button-container">
         <button onClick={sendDataToDatabase} className="send-data-button">
-            Send Contract BOQ to Database
+            Activate Income Table
         </button>
       </div>
 
@@ -380,10 +408,10 @@ const ExcelTableImporter = () => {
         </table>
       </div>
 
-      <style>
+      <style>  
         {`
           .table-container {
-            margin: 50px 80px;
+            margin: 10px;
           }
 
           .table-scroll-container {
@@ -450,17 +478,15 @@ const ExcelTableImporter = () => {
 
           .import-budget-button {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 8px 10px;
             background-color: #003366;
             color: white;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 12px;
             font-style: italic;
             border: none;
             cursor: pointer;
             text-align: center;
             border-radius: 5px;
-            margin-bottom: 20px;
             margin-top: 20px;
           }
 
@@ -480,11 +506,10 @@ const ExcelTableImporter = () => {
           }
 
           .send-data-button {
-            padding: 10px 20px;
+            padding: 6px 10px;
             background-color: #003366;
             color: white;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 12px;
             font-style: italic;
             border: none;
             cursor: pointer;
@@ -498,6 +523,26 @@ const ExcelTableImporter = () => {
           .send-data-button:active {
             background-color: #001933;
           }
+          
+          .example-format-btn {
+            font-size: 12px;
+            font-style: italic;
+          }
+          .example-format-btn:hover {
+            background-color: #002244;
+            color: white;
+            font-size: 16px;
+            padding: 5px;
+            transform: translateY(-2px);
+          }
+
+          /* Mobile responsiveness */
+          @media (max-width: 768px) {
+            .example-format-btn {
+              font-size: 10px;
+              margin-bottom: 20px;
+              white-space: nowrap;
+            }
             
         `}
       </style>
@@ -533,6 +578,7 @@ const styles = {
       fontSize: '16px',
       borderRadius: '4px',
       border: '1px solid #ccc',
+      marginTop: '5px'
     },
     formActions: {
       display: 'flex',
@@ -540,8 +586,8 @@ const styles = {
     },
     cancelButton: {
       padding: '10px 20px',
-      backgroundColor: '#ccc',
-      color: '#fff',
+      backgroundColor: 'gray',
+      color: '#000',
       border: 'none',
       borderRadius: '5px',
       cursor: 'pointer',
