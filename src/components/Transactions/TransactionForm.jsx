@@ -36,15 +36,19 @@ const CreateTransaction = () => {
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
   const [selectableCategories, setSelectableCategories] = useState([])
-
+  const [incomeReport, setIncomeReport] = useState([])
+  const [openDropdownRow, setOpenDropdownRow] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedReport, setSelectedReport] = useState("");
+  const [fullSelectedReport, setFullSelectedReport] = useState(null)
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
     category: "",
-  });  
+  }); 
+   
 
   useEffect(() => {
-    fetchProjectData();
     fetchTransactionData();
     fetchCategories();
 
@@ -55,6 +59,9 @@ const CreateTransaction = () => {
     }
 
   }, [quantity, price]);
+   useEffect(() => {
+    fetchProjectData();
+    }, []);
 
   const fetchTransactionData = async () => {
     try {
@@ -77,15 +84,31 @@ const CreateTransaction = () => {
 
   const fetchProjectData = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/budget/lists`, 
-        { 
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      console.log("response.data", response.data)
-      setProjects(response.data);
+      const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const projectsData = prjResponse?.data?.myProjects || [];
+      const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      setProjects(sortedProjects);
+      
+      const selectedProjectName = localStorage.getItem("projectName") || null
+
+      if(selectedProjectName === null) { 
+        setSelectedProject(sortedProjects[0]?.name);
+
+      } else {
+        setSelectedProject(selectedProjectName)
+      }
+
+      setIsLoading(false)
+      setIsSuccess(true);
+      setSuccessMessage("Projects Displayed successfully.");
+
+      setTimeout(() => {
+        setIsSuccess(false);
+        setSuccessMessage("")
+      }, 3000);
     } catch (err) {
       setError("Failed to fetch data");
       console.error("Error fetching data:", err);
@@ -103,17 +126,33 @@ const CreateTransaction = () => {
     }
   };
 
+  const fetchReportData = async() => {
+    setIsLoading(true)
+    // check if selected category has a report
+    const getSelectedName = localStorage.getItem("projectName")
+    const selectedProjectName = { projectName: getSelectedName };
+    const response = await axios.post(`${BASE_URL}/report/listsByProject`, selectedProjectName, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setIncomeReport(response.data.myReports)
+    setIsLoading(false)
+
+    console.log('fffffffffffffffffffff', response.data.myReports)
+  }
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validate all fields
-    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport
     ) {
-      setError("Please fill in all required fields!");
+      setError("Please fill all required fields! Including select income field.");
+      setTimeout(() => {
+        setError('')
+      }, 3000);
       return;
     }
-
     // Prepare data for submission
     const transactionData = {
       amount,
@@ -125,7 +164,9 @@ const CreateTransaction = () => {
       unit,
       paymentMethod,
       price,
+      fullSelectedReport,
     };
+    console.log('transactionDatatransactionData', transactionData)
     try {
       setIsLoading(true);
       await axios.post(`${BASE_URL}/transactions/create`, transactionData,
@@ -142,7 +183,7 @@ const CreateTransaction = () => {
 
       setTimeout(() => {
         setIsSuccess(false); 
-        resetForm();
+        // resetForm();
      }, 3000);
 
       // setShowModal(false);
@@ -191,10 +232,11 @@ const CreateTransaction = () => {
     setShowModal(true)
     setSwitchToEditMode(true);
     setTransactionId(id)
+    fetchReportData()
 
     const dataToEdit = transactionData.find((transaction) => transaction._id === id);
 
-    console.log("dataToEditdataToEditdataToEdit", dataToEdit)
+    console.log("dataToEditdataToEditdataToEdit", fullSelectedReport)
 
     setAmount(dataToEdit.amount);
     setCategory(dataToEdit.category);
@@ -205,12 +247,13 @@ const CreateTransaction = () => {
     setUnit(dataToEdit.unit);
     setPaymentMethod(dataToEdit.paymentMethod);
     setPrice(dataToEdit.price);
+    setSelectedReport(fullSelectedReport.description || "")
 
   };
 
   const handleSaveUpdatedTransaction = async () => {
     // Validate all fields
-    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport
     ) {
       setError("Please fill in all required fields!");
       return;
@@ -227,6 +270,8 @@ const CreateTransaction = () => {
       unit,
       paymentMethod,
       price,
+      fullSelectedReport
+
     };
 
     try {
@@ -338,6 +383,7 @@ const CreateTransaction = () => {
     setPaymentMethod("");
     setPrice("");
     setError("");
+    setSelectedProject("")
   };
   function formatDate(dateString) {
     const date = new Date(dateString);
@@ -375,6 +421,41 @@ const CreateTransaction = () => {
     link.download = 'transactionData.xlsx'; // The name of the downloaded file
     link.click(); // Simulate the click to trigger the download
   };
+  const formatWithCommas = (value) => {
+    if (value === undefined || value === null || value === "") {
+      return "";
+    }
+    const number = parseFloat(value);
+    return isNaN(number) ? value : number.toLocaleString();
+  };
+
+  const handleFocus = () => {
+    setOpenDropdownRow(true);
+  };
+
+  // Handle input blur
+  const handleBlur = () => {
+    // Add a slight delay before closing the dropdown to allow clicking on list items
+    setTimeout(() => setOpenDropdownRow(false), 200);
+  };
+  const handleItemClick = (e, report) => {
+    setOpenDropdownRow(false)
+    setSearchTerm('');
+    console.log("descriptiondescriptiondescription", report)
+    setSelectedReport(e.target.value)
+    setFullSelectedReport(report)
+  };
+
+   // Filter the incomeReport based on the search term
+   const filteredReports = incomeReport.filter((report) =>
+    report.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const openIncomeDropdown = () => {
+    openDropdownRow === true ? setOpenDropdownRow(false) : setOpenDropdownRow(true)
+    fetchReportData()
+
+  }
   
 
 return (
@@ -522,12 +603,111 @@ return (
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="transaction-form">
+             <div className="form-group">
+              <label style={{ fontSize: '18px', marginLeft: '20px' }}>Select Income for this Transaction: </label>
+              <div style={{ fontStyle: 'italic', fontSize: '12px', marginLeft: '20px' }}>If no income, create one from the income tab</div>
+             </div>
+             
+                        
+
+            <div>
+            <div 
+              onClick={() => openIncomeDropdown() } 
+              style={{
+                border: "1px solid #ccc",
+                padding: "6px",
+                cursor: "pointer",
+                backgroundColor: "#fff",
+              }}
+            >
+              {selectedReport
+                ?   selectedReport  
+                : "-- Select Income --"
+              }
+            </div>
+              {/* Dropdown */}
+              {openDropdownRow && (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search Incomes..."
+                    value={searchTerm}
+                    onChange={(e) => {setSearchTerm(e.target.value), setSelectedReport('')}}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      boxSizing: 'border-box',
+                      border: 'none',
+                      borderBottom: '1px solid #000',
+                    }}
+                  />
+                <div
+                  key='{report.idjjjjjjj}'
+                  style={{
+                    listStyle: 'none',
+                    padding: 0,
+                    margin: 0,
+                    maxHeight: '500px',
+                    overflowY: 'auto',
+                    border: '1px solid #ccc',
+                    backgroundColor: '#fff',
+                    position: 'absolute',
+                    zIndex: 9999,
+                  }}
+                >
+                  <div style={{marginLeft: '10px', fontStyle: 'italic'}}> All Incomes</div>
+                  {filteredReports.length > 0 ? (
+                    filteredReports
+                    ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                    ?.map((report) => (
+                      <div
+                        key={report.id}
+                        style={{
+                          padding: '10px 15px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          backgroundColor: '#f9f9f9',
+                          transition: 'background-color 0.3s, transform 0.2s',
+                          marginBottom: '5px',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          color: '#333',
+                        }}
+                        onClick={() => handleItemClick({ target: { value: report.description } }, report)}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#e0e0e0'; // Highlight on hover
+                          e.target.style.transform = 'scale(1.02)'; // Slightly enlarge on hover
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#f9f9f9'; // Reset background color
+                          e.target.style.transform = 'scale(1)'; // Reset size
+                        }}
+                      >
+                        <span>{report.description}</span>
+                        <span>{formatWithCommas(report.amount)}</span>
+                      </div>
+
+                    ))
+                  ) : (
+                    <li style={{ padding: '6px', color: '#888' }}>No categories found</li>
+                  )}
+                </div>
+                </div>
+              )}
+            </div>
+
             <div className="form-group-categories">
               <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
             </div>
             <div className="form-group-categories">
               <CategorySelection category={category} setCategory={setCategory} />
             </div>
+            
 
             <div className="form-group">
               <label className="form-label">Description</label>
@@ -628,6 +808,7 @@ return (
                   fetchTransactionData();
                   resetForm();
                   setSwitchToEditMode(false);
+                  setSelectedReport('')
                 }}
                 className="close-btn"
               >

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
+
 import { BASE_URL } from "../../utils/url";
 import axios from "axios";
 
@@ -78,8 +79,9 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
   };
 
   const handleSelectProject = (project) => {
-    setSelectedProject(project); // Update the parent component's selectedProject state
-    setDropdownOpen(false); // Close the dropdown after selecting
+    setSelectedProject(project);
+    setDropdownOpen(false);
+    localStorage.setItem("projectName", project);
   };
 
   const handleSearch = (e) => {

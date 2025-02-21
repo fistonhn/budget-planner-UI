@@ -20,8 +20,7 @@ const TransactionOverview = () => {
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  
-    const [isSuccess, setIsSuccess] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -29,7 +28,7 @@ const TransactionOverview = () => {
 
   useEffect(() => {
     if (selectedProject) {
-      fetchTransactionsData();
+      fetchReportData();
     }
   }, [selectedProject]);
 
@@ -43,7 +42,15 @@ const TransactionOverview = () => {
       const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
       setProjects(sortedProjects);
-      setSelectedProject(sortedProjects[0]?.name);
+      
+      const selectedProjectName = localStorage.getItem("projectName") || null
+
+      if(selectedProjectName === null) { 
+        setSelectedProject(sortedProjects[0]?.name);
+
+      } else {
+        setSelectedProject(selectedProjectName)
+      }
 
       setIsLoading(false)
       setIsSuccess(true);
@@ -59,7 +66,9 @@ const TransactionOverview = () => {
     }
   };
 
-  const fetchTransactionsData = async () => {
+  const fetchReportData = async () => {
+    setIsLoading(true)
+
     try {
       const selectedProjectName = { projectName: selectedProject };
       const response = await axios.post(`${BASE_URL}/report/listsByProject`, selectedProjectName, {
@@ -67,7 +76,15 @@ const TransactionOverview = () => {
       });
 
       setTransactions(response.data.myReports);
-      setIsLoading(false);
+
+      setIsLoading(false)
+      setIsSuccess(true);
+      setSuccessMessage("Project Report Displayed successfully.");
+
+      setTimeout(() => {
+        setIsSuccess(false);
+        setSuccessMessage("")
+      }, 3000);
     } catch (error) {
       console.error("Error fetching transactions data:", error);
       setIsError(true);
@@ -130,6 +147,7 @@ const TransactionOverview = () => {
         acc[item.category] = {
           category: item.category,
           incomeAmount: 0,
+          amount: item.amount,
           expenseAmount: 0,
           updatedAt: item.updatedAt,
           descriptions: [],
@@ -159,12 +177,9 @@ const TransactionOverview = () => {
     setExpandedCategory(expandedCategory === category ? null : category);
   };
 
-  // Handle Project Change from Select Dropdown
-  const handleProjectChange = (event) => {
-    setSelectedProject(event.target.value);
-  };
-
   const processedData = processData(transactions);
+
+  console.log('processedDataprocessedData', processedData)
 
   const cellStyle = {
     border: "1px solid black",
@@ -223,47 +238,154 @@ const TransactionOverview = () => {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ padding: "8px", backgroundColor: "#d1e7e0" }}>Categories</th>
-              <th style={{ padding: "8px", backgroundColor: "#cce0ff" }}>Income</th>
-              <th style={{ padding: "8px", backgroundColor: "#a8c6e8" }}>Expense</th>
-              <th style={{ padding: "8px", backgroundColor: "#ffcccc" }}>Profit</th>
+              <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>ID</th>
+              <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>Categories</th>
+              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Income</th>
+              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Contract</th>
+              <th style={{ padding: "8px", backgroundColor: "#a8c6e8", border: "1px solid black" }}>Expense</th>
+              <th style={{ padding: "8px", backgroundColor: "#ffcccc", border: "1px solid black" }}>Profit</th>
             </tr>
           </thead>
           <tbody>
-            {processedData.map((item, index) => (
-              <React.Fragment key={index}>
-                <tr key={index} onClick={() => handleRowClick(item.category)} style={{ cursor: "pointer" }}>
-                  <td style={cellStyle}>{item.category}</td>
-                  <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
-                  <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
-                  <td style={{ ...profitHeaderStyle, ...(item.profit < 0 ? negativeStyle : {}) }}>
-                      {formatNumber(item.profit)}
-                  </td>
-                </tr>
+            {processedData.map((item, index) => {
+              // Generate the letter for the current row
+              const letter = String.fromCharCode(65 + (index % 26));
 
-                {/* Render expanded descriptions */}
-                {expandedCategory === item.category && (
-                  item.descriptions
-                  ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                  ?.map((descItem, descIndex) => (
-                      <tr key={`${index}-desc-${descIndex}`}>
-                          <td style={{border: "1px solid gray", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray"}}>{descItem.description}</td> {/* Description under Category */}
-                          <td style={{ border: "1px solid gray", backgroundColor: "#cce0ff", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray" }}>
+              return (
+                <React.Fragment key={index}>
+                  <tr onClick={() => handleRowClick(item.category)} style={{ cursor: "pointer" }}>
+                    <td style={cellStyle}>{letter}</td>
+                    <td style={cellStyle}>{item.category}</td>
+                    <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
+                    <td style={incomeHeaderStyle}>{formatNumber(item.amount)}</td>
+                    <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
+                    <td style={{ ...profitHeaderStyle, ...(item.profit < 0 ? negativeStyle : {}) }}>
+                      {formatNumber(item.profit)}
+                    </td>
+                  </tr>
+
+                  {/* Render expanded descriptions */}
+                  {expandedCategory === item.category &&
+                    item.descriptions
+                      ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                      ?.map((descItem, descIndex) => {
+                        // Generate the description's letter-number identifier
+                        const descriptionLabel = `${letter}${descIndex + 1}`;
+
+                        return (
+                          <tr key={`${index}-desc-${descIndex}`}>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {descriptionLabel}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {descItem.description}
+                            </td> {/* Description under Category */}
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#cce0ff",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
                               {formatNumber(descItem.incomeAmount)}
-                          </td>
-                          <td style={{ border: "1px solid gray", backgroundColor: "#a8c6e8", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray" }}>
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#cce0ff",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {formatNumber(descItem.amount)}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#a8c6e8",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
                               {formatNumber(descItem.expenseAmount)}
-                          </td>
-                          <td style={{ border: "1px solid gray", backgroundColor: "#ffcccc", paddingLeft: "30px", fontSize: "12px", fontStyle: "italic", color: "gray",
-                            ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0 ? negativeStyle : {}) }}>
-                              {formatNumber((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0))}
-                          </td>
-                      </tr>
-                  ))
-                )}
-              </React.Fragment>
-            ))}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#ffcccc",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                                ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) -
+                                  (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0
+                                  ? negativeStyle
+                                  : {}),
+                              }}
+                            >
+                              {formatNumber(
+                                (descItem.incomeAmount ? descItem.incomeAmount : 0) -
+                                  (descItem.expenseAmount ? descItem.expenseAmount : 0)
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                </React.Fragment>
+              );
+            })}
           </tbody>
+
+          {/* Totals Row */}
+          <tfoot>
+            <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
+              <td style={{ padding: "8px", border: "1px solid black", textAlign: 'center' }} colSpan="2">Total</td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff" }}>
+                {formatNumber(
+                  processedData.reduce((acc, item) => acc + item.incomeAmount, 0)
+                )}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff", }}>
+                {formatNumber(
+                  processedData.reduce((acc, item) => acc + item.amount, 0)
+                )}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#a8c6e8", }}>
+                {formatNumber(
+                  processedData.reduce((acc, item) => acc + item.expenseAmount, 0)
+                )}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", ...profitHeaderStyle, ...((processedData.reduce((acc, item) => acc + item.profit, 0)) < 0 ? negativeStyle : {}) }}>
+                {formatNumber(
+                  processedData.reduce((acc, item) => acc + item.profit, 0)
+                )}
+              </td>
+            </tr>
+          </tfoot>
+
         </table>
       </div>
       <style jsx>{`

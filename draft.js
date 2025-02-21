@@ -1,461 +1,597 @@
 import React, { useState, useEffect } from "react";
-import { SiDatabricks } from "react-icons/si";
-import { FaTrash, FaEdit } from "react-icons/fa";
-import * as XLSX from "xlsx";
+import ProjectSelection from "../Category/AddProject";
 
+import axios from "axios";
+import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
-import { BASE_URL } from "../../utils/url";
-import axios from "axios";
 
-const token = getUserFromStorage();
-
-const AddCategory = () => {
-  const [name, setName] = useState("");
-  const [error, setError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+const UpdateIncomeBudget = () => {
+  const [data, setData] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [selectedProject, setSelectedProject] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [switchToEditMode, setSwitchToEditMode] = useState(false);
-  const [ctgId, setCtgId] = useState("")
-  // Fetch categories when component mounts
+  const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [category, setCategory] = useState(null);
+
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [columns] = useState([
+    { Header: "Code", accessor: "code" },
+    { Header: "Description", accessor: "description" },
+    { Header: "Quantity", accessor: "quantity" },
+    { Header: "Unit", accessor: "unit" },
+    { Header: "Rate", accessor: "rate" },
+    { Header: "Amount", accessor: "amount" },
+    { Header: "Progress %", accessor: "progress" },
+    { Header: "Amount Due to date", accessor: "currentAmount" },
+    { Header: "Categories", accessor: "category" },
+    { Header: "Action", accessor: "action" },
+
+  ]);
+
+  const headerColors = {
+    code: "#ffcccc", // Soft Red
+    description: "#ccffcc", // Soft Green
+    quantity: "#ffebcc", // Soft Orange
+    unit: "#e6e6fa", // Lavender
+    rate: "#ffff99", // Light Yellow
+    amount: "#ffb3e6", // Soft Pink
+    progress: "#99ccff", // Light Blue
+    category: "#ffcc99", // Light Peach
+    currentAmount: "#c2f0c2", // Light Mint
+  };
+
+  const categoryRowColor = "#d3d3d3";
+  const invalidCodeColor = "#003366";
+  const token = getUserFromStorage();
+  const selectedProjectName = localStorage.getItem("projectName") || null
+  const Button = ({ onClick, label, isLoading, isDisabled, className }) => {
+    return (
+      <button
+        onClick={onClick}
+        disabled={isDisabled || isLoading}
+        className={`btn ${className} ${isLoading ? "loading" : ""}`}
+      >
+        {isLoading ? "Loading..." : label}
+      </button>
+    );
+  };
+
   useEffect(() => {
-    fetchCategories();
-  }, []); 
+    fetchProjects();
+    fetchCategories();  
+    displayRandomProject();
+  }, []);
+
+  useEffect(() => {
+      if (selectedProject) {
+        displayRandomProject();
+      }
+    }, [selectedProject]);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/projects/lists`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProjects(response?.data?.myProjects);
+    } catch (err) {
+      console.error("Error fetching Projects", err);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${BASE_URL}/categories/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCategories(response.data);
-      console.log('response.data', response.data)
+      setCategories(response?.data);
+
+      console.log('jjhjjj', response?.data)
     } catch (err) {
-      console.error("Error fetching categories", err);
+      console.error("Error fetching Categories", err);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setIsSubmitting(true);
-
-    const formData = { name };
-
-    try {
-      // Send POST request to API using axios
-      await axios.post(
-        `${BASE_URL}/categories/create`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setName("");
-      setIsSuccess(true);
-      setSuccessMessage("Category added successfully");
-      setIsSubmitting(false);
-
-      fetchCategories();
-
-      // Fetch updated categories
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
-    } catch (err) {
-      setError("Category already exists or is Invalid!");
-      setIsSubmitting(false);
-
-      setTimeout(() => {
-        setError(null);
-      }, 3000);
-    }
-  };
-
-  const handleUpdateCategory = async (id) => {
-    setSwitchToEditMode(true);
-    console.log(id)
-    setCtgId(id)
-    const dataToEdit = categories.find((category) => category._id === id);
-    setName(dataToEdit.Name)
-  };
-
-  const handleSaveUpdatedCategory = async() => {
-    try {
-      const formData = { name };
-      await axios.post(
-        `${BASE_URL}/categories/update/${ctgId}`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }   
-      );
-
-      setName("");
-      setIsSuccess(true);
-      setSuccessMessage("Category updated successfully");
-      setIsSubmitting(false);
-      setSwitchToEditMode(false);
-
-      fetchCategories();
-
-      // Fetch updated categories
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
-    } catch (err) {
-      setSwitchToEditMode(false);
-      setError("Category already exists or is Invalid!");
-      setIsSubmitting(false);
-
-      setTimeout(() => {
-        setError(null);
-      }, 3000);
-    }
-  }
-
-  const handleDelete = async (id) => {
+  const displayRandomProject = async () => {
     try {
       setIsLoading(true);
-        await axios.delete(`${BASE_URL}/categories/delete/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      setData([])
+
+      const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
+        headers: { Authorization: `Bearer ${token}` }, });
+
+        const projectsData = prjResponse?.data?.myProjects || [];
+        const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+        let projectData = null
+
+        if(selectedProjectName === null) { 
+          setSelectedProject(sortedProjects[0]?.name);
+           projectData = { projectName: sortedProjects[0]?.name }
+
+        } else {
+          setSelectedProject(selectedProjectName)
+          projectData = { projectName: selectedProjectName };
+        }
+
+      const response = await axios.post(
+        `${BASE_URL}/budget/listsByProject`,
+        projectData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       setIsLoading(false);
-      setIsSuccess(true);
-      setSuccessMessage("Category deleted successfully");
+      setData(response?.data?.budgetDataByProj);
+ 
+      if (response?.data?.budgetDataByProj.length > 0) {
+        setIsSuccess(true);
+        setSuccessMessage("Project Budget listed successfully");
 
-      setTimeout(() => {
-        setIsSuccess(false); 
-     }, 3000);
+        setTimeout(() => {
+          setIsSuccess(false);
+          setSuccessMessage(" ");
+        }, 3000);
+      } else {
+        setErrorMessage("Selected Project Doesn't have Income Budget");
+        setIsError(true);
 
+        setTimeout(() => {
+          setIsError(false);
+        }, 3000);
+      }
 
-     fetchCategories();
-    } catch (error) {
+    } catch (err) {
+      console.log("Error fetching Projects", err);
+    }
+  };
+
+  
+  const handleSave = async (rowIndex) => {
+    const row = data[rowIndex];
+    const updatedData = {
+      id: row._id,
+      progress: row.progress,
+      category: row.category,
+      currentAmount: row.currentAmount,
+      description: row.description,
+      projectName: row.projectName,
+    };
+    console.log("updatedData", updatedData)
+    setIsLoading(true);  
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/budget/updateIncomes`,
+        updatedData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setIsLoading(false);
-      setError("Not Authorized! Please delete only category created or imported by you!");
+      console.log("updatedDataupdatedData", response?.status)
+
+
+      if (response?.status === 200) {
+        setSuccessMessage("Progress Updated successfully.");
+        setIsSuccess(true);
+        displayRandomProject(row.projectName)
+  
+        setTimeout(() => {
+          setIsSuccess(false);
+        }, 3000);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Error updating data", err);
+      setErrorMessage("Error updating data");
+      setIsError(true);
       setTimeout(() => {
-        setError(null);
+        setIsError(false);
       }, 3000);
     }
   };
 
-  const handleExcelUpload = (event) => {
-    const file = event.target.files[0];
-    setFileName(file.name);
+  const handleCategoryChange = (e, rowIndex) => {
+    const updatedData = [...data];
+    updatedData[rowIndex].category = e.target.value; // Update the category for the current row
+    setData(updatedData); // Update the data state
+  };
 
-    if (file) {
-      const reader = new FileReader();
-      
-      reader.onload = async (e) => {
-        const abuf = e.target.result;
-        const wb = XLSX.read(abuf, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        const jsonFormattedData = jsonData.map((row, index) => {
-          if (index === 0) return null; // Skip the header row
-          return jsonData[0].reduce((acc, columnName, colIndex) => {
-            acc[columnName] = row[colIndex];
-            return acc;
-          }, {});
-        }).filter(item => item !== null); // Filter out the null (header row)
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    console.log("e.target.value", e.target.value);
 
-        try {
-          setIsLoading(true);
-          await axios.post(
-            `${BASE_URL}/categories/create`,
-            jsonFormattedData,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setIsLoading(false);
-    
-          setName("");
-          setIsSuccess(true);
-          setSuccessMessage("Categories imported successfully");
-          setIsSubmitting(false);
-    
-          fetchCategories();
-    
-          // Fetch updated categories
-          setTimeout(() => {
-            setIsSuccess(false);
-          }, 3000);
-        } catch (err) {
-          setIsLoading(false);
-          setError("One or many Categories already exists or file is in Invalid format!");
-          setIsSubmitting(false);
-    
-          setTimeout(() => {
-            setError(null);
-          }, 3000);
-        }
-  
-        console.log("Formatted JSON Data from Excel:", jsonFormattedData);
+    const filtered = categories?.filter((category) =>
+      category.Name.toLowerCase().includes(e.target.value.toLowerCase())
+    );
+    setCategories(filtered);
+  };
+
+  const getRowStyle = (row) => {
+    if (!row.code || row.code.length === undefined) {
+      return {
+        backgroundColor: invalidCodeColor,
+        color: "#fff", // White text color for better contrast
       };
-  
-      // Read the file as an array buffer
-      reader.readAsArrayBuffer(file);
     }
+
+    if (row.code && row.code.length === 1) {
+      return {
+        backgroundColor: categoryRowColor,
+        fontSize: "12px",
+        fontWeight: "bold",
+      };
+    }
+
+    return {};
+  };
+
+  const isEmptyRow = (row) => {
+    return Object.values(row).every((value) => value === null || value === "");
+  };
+
+  const formatWithCommas = (value) => {
+    if (value === undefined || value === null || value === "") {
+      return "";
+    }
+    const number = parseFloat(value);
+    return isNaN(number) ? value : number.toLocaleString();
+  };
+
+  const handleProgressChange = (e, rowIndex) => {
+    const updatedData = [...data];
+    const updatedProgress = e.target.value === "" ? "" : e.target.value;
+    updatedData[rowIndex].progress = updatedProgress;
+  
+    // Recalculate Amount Due to date after Progress change
+    if (updatedData[rowIndex].amount && updatedProgress !== "") {
+      updatedData[rowIndex].currentAmount = 
+        parseFloat(updatedProgress) === 0 
+          ? 0 
+          : calculateAmountDue(updatedData[rowIndex].amount, updatedProgress);
+    } else {
+      updatedData[rowIndex].currentAmount = "";
+    }
+  
+    setData(updatedData); // Update the data state
   };
   
+
+  const calculateAmountDue = (amount, progress) => {
+    if (!amount || !progress) return ""; // If amount or progress is missing, return empty
+    return (amount * (100 - progress)) / 100;
+  };
+
+  const getCellStyle = (row, columnKey) => {
+    if (row.code === "st") {
+      if (columnKey === "code" || columnKey === "description") {
+        return {
+          fontSize: "13px",
+          fontWeight: "bold",
+          fontStyle: "italic",
+          textDecoration: "underline",
+        };
+      }
+    }
+
+    if (row.code === "tt") {
+      if (columnKey === "code" || columnKey === "description" || columnKey === "amount") {
+        return {
+          fontWeight: "bold",
+        };
+      }
+    }
+
+    // For editable progress cells
+    if (columnKey === "progress") {
+      return {
+        border: "1px solid #ccc", // Border inside the cell
+        color: "black", // Text color
+        padding: "4px",
+        textAlign: "center",
+        width: "100%",
+      };
+    }
+
+    return {};
+  };
+
+  const getEditableCellStyle = (columnKey, row) => {
+    if (columnKey === "progress") {
+      if (row.amount) {
+        return {
+          border: "1px solid #ccc",
+          color: "black",
+          padding: "4px",
+          textAlign: "center",
+          backgroundColor: "white",
+        };
+      } 
+    }
+
+    return {};
+  };
+
   return (
-    <div>
-      {/* Form */}
-      <div className="form-categories-container">
-        <form onSubmit={handleSubmit} className="form-container">
-          <div>
-            <h2 className="form-title">Add New Category</h2>
-          </div>
-
-          {/* Display alert message */}
-          <div className='alert-message-container'>
-            {error && <AlertMessage type="error" message={error} />}
-            {isSuccess && (
-              <AlertMessage type="success" message={ successMessage } />
-            )}
-            {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
-          </div>
-
-          {/* Category Name */}
-          <div className="form-group">
-            <label htmlFor="name" className="input-label">
-              <SiDatabricks className="inline mr-2 text-blue-500" />
-              Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name"
-              id="name"
-              className="input-field"
+    <div className="table-container">
+      <div className='alert-message-container'>
+        {isError && (
+            <AlertMessage
+                type="error"
+                message={errorMessage}
+            />                                                                                       
+        )}
+        {isSuccess && (
+            <AlertMessage
+                type="success"
+                message={successMessage}
             />
-          </div>
-
-          {/* Submit Button */}
-          {switchToEditMode ? 
-            <button
-              type="button"
-              className="submit-button"
-              disabled={isSubmitting}
-              onClick={() => handleSaveUpdatedCategory()}
-            >
-              {isSubmitting ? "Updating Category..." : "Update Category"}
-            </button> : 
-
-            <button
-              type="submit"
-              className="submit-button"
-              disabled={isSubmitting}
-              >
-              {isSubmitting ? "Adding Category..." : "Add Category"}
-            </button>
-          }
-        </form>
-
-        <div className="import-button-container">
-          <div className="filename-display">
-            {fileName ? `Selected file: ${fileName}` : "No file selected"}
-          </div>
-
-          <div className="import-button-label">
-            <label htmlFor="excel-upload" >
-              Import Categories (Excel)
-            </label>
-            <input
-              type="file"
-              id="excel-upload"
-              accept=".xlsx, .xls"
-              onChange={handleExcelUpload}
-              className="import-file-input"
-            />
-          </div>
-        </div>          
+        )}
+        {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+      </div>
+      <div style={{width: '30%'}} >
+        <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
       </div>
 
-      {/* Categories Table */}
-      <div className="categories-table-container">
-        <h2 className="table-title">Categories</h2>
-        {categories.length > 0 ? (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Category Name</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories
-              .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-              .map((category) => (
-                <tr key={category.id}>
-                  <td>{ category.Name?.charAt(0)?.toUpperCase() + category?.Name?.slice(1) }</td>
-                  <td className="action-buttons">
-                    <button
-                      onClick={() => handleUpdateCategory(category._id)}
-                      className="text-blue-500 hover:text-blue-700"
-                      >
-                      <FaEdit />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(category._id)}
-                      className="text-red-500 hover:text-red-700 ml-2"
-                      >
-                      <FaTrash />
-                    </button>
+      <div className="table-scroll-container">
+        <table className="styled-table">
+          <thead>
+            <tr>
+              <th colSpan={10} className="summary-row">
+                <div className="row-title">
+                  <strong>Activate Income Table</strong>
+                </div>
+              </th>
+            </tr>
+            <tr>
+              {columns.map((column) => (
+                <th
+                  key={column.accessor}
+                  style={{
+                    backgroundColor: headerColors[column.accessor],
+                    width:
+                      column.accessor === "quantity" ? "70px" :
+                      column.accessor === "category" ? "250px" :
+                      column.accessor === "description" ? "300px" : 
+                      column.accessor === "code" ? "60px" : 
+                      column.accessor === "unit" ? "80px" : "150px",
+                  }}
+                >
+                  {column.Header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, rowIndex) => (
+              isEmptyRow(row) ? (
+                <tr key={rowIndex}>
+                  <td colSpan={6} style={{ textAlign: "center", backgroundColor: "#f9f9f9", height: "30px" }}>
+                    No Data Available
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-gray-600">No categories available.</p>
-        )}
+              ) : (
+                <tr key={rowIndex} style={getRowStyle(row)}>
+                  {columns.map((column) => (
+                    <td key={column.accessor}>
+                      {column.accessor === "amount" ||
+                      column.accessor === "rate" ||
+                      column.accessor === "currentAmount" ? (
+                        <span style={getCellStyle(row, column.accessor)}>
+                          {formatWithCommas(row[column.accessor])}
+                        </span>
+                      ) : column.accessor === "progress" ? (
+                        <input
+                          type="number"
+                          value={row[column.accessor] !== null && row[column.accessor] !== "" ? row[column.accessor] : ""}
+                          onChange={(e) => handleProgressChange(e, rowIndex)}
+                          style={getEditableCellStyle(column.accessor, row)}
+                          disabled={!row.amount}
+                        />
+                      ) : column.accessor === "category" ? (
+                        row.amount ? (
+                          <select
+                            value={row[column.accessor] || ""}
+                            onChange={(e) => handleCategoryChange(e, rowIndex)}
+                            style={{
+                              ...getEditableCellStyle(column.accessor, row),
+                              width: "100%",  // Fixed width
+                            }}
+                          >
+                        
+                            {categories?.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.Name}
+                              </option>
+                            ))}
+                          </select>
+                          // <div className="dropdown-container">
+                          //   <div
+                          //     className="dropdown-toggle"
+                          //     onClick={() => setDropdownOpen(!dropdownOpen)}
+                          //   >
+                          //     {category ? category : "select category"}
+                          //   </div>
+
+                          //   {dropdownOpen && (
+                          //     <div className="dropdown-menu">                            
+                          //       {/* Search Field */}
+                          //       <input
+                          //         type="text"
+                          //         value={searchTerm}
+                          //         onChange={handleSearch}
+                          //         placeholder="Search categories..."
+                          //         className="dropdown-search"
+                          //       />
+                          //       {categories?.length === 0 && (
+                          //         <div className="no-results">No results found</div>
+                          //       )}
+                          //       {categories
+                          //         ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                          //         ?.map((category, index) => (
+                          //           <div
+                          //             key={index}
+                          //             className="dropdown-item"
+                          //             onClick={() => handleSelectCategory(category.Name)}
+                          //           >
+                          //             {category.Name?.charAt(0)?.toUpperCase() + category?.Name?.slice(1)}
+                          //           </div>
+                          //         ))}
+                          //     </div>
+                          //   )}
+                          // </div>
+                        ) : (
+                          <span>--</span>
+                        )
+                      ) : column.accessor === "code" || column.accessor === "description" ? (
+                        <span style={getCellStyle(row, column.accessor)}>
+                          {row[column.accessor]}
+                        </span>
+                      ) : column.accessor === "action" ? (  // Action column with Save button
+                        row.amount ? (  // Only show Save button if there is an amount
+                          <button
+                            onClick={() => handleSave(rowIndex)}
+                            style={{
+                              padding: "5px 10px",
+                              fontSize: "12px",
+                              backgroundColor: "#4CAF50",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Save
+                          </button>
+                        ) : null // No button if no amount
+                      ) : (
+                        <span style={{ width: "100%" }}>{row[column.accessor] || ""}</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              )
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      <style>
+        {`
+          .table-container {
+            margin: 50px 80px;
+          }
+
+          .table-scroll-container {
+            max-height: 800px;
+            overflow-y: auto;
+          }
+
+          .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+          }
+
+          .row-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+          }
+
+          .styled-table th, .styled-table td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: left;
+          }
+
+          .styled-table th {
+            font-weight: bold;
+            color: #333;
+            background-color: #f1f1f1;
+            position: sticky;
+            top: 0;
+          }
+
+          .styled-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+
+          .styled-table tr:hover {
+            background-color: #f1f1f1;
+          }
+
+          .styled-table .summary-row {
+            background-color: #f8f8f8;
+            font-size: 16px;
+          }
+
+
+
+        @media screen and (max-width: 768px) {
+        .table-container {
+            margin: 5px 20px;
+          }
+            .styled-table {
+                font-size: 12px;
+                width: 100%;
+            }
+
+            .styled-table th,
+            .styled-table td {
+                padding: 8px;
+            }
+
+            #project-select {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .table-scroll-container {
+                overflow-x: auto;
+            }
+
+            .styled-table th,
+            .styled-table td {
+                text-align: left;
+                padding: 8px;
+            }
+            }
+
+            @media screen and (max-width: 480px) {
+            .styled-table {
+                font-size: 10px;
+            }
+
+            .styled-table th,
+            .styled-table td {
+                padding: 5px;
+            }
+
+            .styled-table th {
+                font-size: 12px;
+            }
+
+            #project-select {
+                width: 100%;
+            }
+
+        `}
+      </style>
     </div>
   );
 };
 
-export default AddCategory;
-
-// Adding styles dynamically
-const style = document.createElement('style');
-style.innerHTML = `
-  .form-categories-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin-top: 50px;
-    max-width: 80%;
-    padding: 10px;
-  }
-  .form-container {
-    margin-left: 50px;
-    max-width: 100%;
-    background-color: white;
-    padding: 10px;
-    border-radius: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .form-title {
-    text-align: left;
-    font-size: 16px;
-    font-weight: 600;
-    color: #4a4a4a;
-  }
-
-  .input-label {
-    font-size: 14px;
-    color: #4a4a4a;
-    margin-bottom: 5px;
-  }
-
-  .input-field {
-    padding: 5px;
-    border: 1px solid #dcdcdc;
-    border-radius: 0.375rem;
-    width: 100%;
-    font-size: 14px;
-    outline-color: #3b82f6;
-  }
-
-  .submit-button {
-    background-color: #003366;
-    color: white;
-    padding: 5px 5px;
-    font-size: 14px;
-    font-weight: 600;
-    border-radius: 0.375rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .submit-button:hover {
-    background-color: #002244;
-  }
-
-  .categories-table-container {
-    max-width: 60%;
-    margin-left: 50px;
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .table-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #4a4a4a;
-    margin-bottom: 1rem;
-  }
-
-  .table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .table th, .table td {
-    padding: 12px;
-    border: 1px solid #dcdcdc;
-    text-align: left;
-  }
-
-  .table th {
-    background-color: #f9f9f9;
-  }
-
-  .action-buttons {
-    margin: 2px;
-  }
-  
-  /* Styles for the import categories button */
-  .import-button-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 70px;
-    margin-left: 0; /* Remove unnecessary margin-left */
-  }
-
-  .import-button-label {
-    background-color: #1d4ed8;
-    color: white;
-    padding: 12px 28px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    display: inline-block;
-    text-align: left;
-    margin-top: 10px;
-  }
-
-  .import-button-label:hover {
-    background-color: #1e40af;
-    transform: translateY(-4px);
-  }
-
-  .import-file-input {
-    display: none;
-  }
-
-  .filename-display {
-    font-size: 1rem;
-    color: #374151;
-    padding-top: 10px;
-    font-weight: 500;
-  }
-
-  .import-file-input:focus + .import-button-label {
-    border: 2px solid #3b82f6;
-    box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
-  }
-`;
-
-document.head.appendChild(style);
+export default UpdateIncomeBudget;

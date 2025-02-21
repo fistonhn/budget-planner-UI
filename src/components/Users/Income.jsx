@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
+import ProjectSelection from "../Category/AddProject";
+
 import axios from "axios";
 import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
@@ -10,6 +11,8 @@ const UpdateIncomeBudget = () => {
   const [projects, setProjects] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [openDropdownRow, setOpenDropdownRow] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -46,12 +49,23 @@ const UpdateIncomeBudget = () => {
   const categoryRowColor = "#d3d3d3";
   const invalidCodeColor = "#003366";
   const token = getUserFromStorage();
+  const selectedProjectName = localStorage.getItem("projectName") || null
 
   useEffect(() => {
     fetchProjects();
     fetchCategories();  
     displayRandomProject();
   }, []);
+
+  useEffect(() => {
+      if (selectedProject) {
+        displayRandomProject();
+      }
+    }, [selectedProject]);
+
+    const filteredCategories = categories.filter(category => 
+      category.Name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const fetchProjects = async () => {
     try {
@@ -79,15 +93,25 @@ const UpdateIncomeBudget = () => {
 
   const displayRandomProject = async () => {
     try {
+      setIsLoading(true);
+      setData([])
+
       const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
         headers: { Authorization: `Bearer ${token}` }, });
 
         const projectsData = prjResponse?.data?.myProjects || [];
         const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        setSelectedProject(sortedProjects[0]?.name);
 
+        let projectData = null
 
-      const projectData = { projectName: sortedProjects[0]?.name };
+        if(selectedProjectName === null) { 
+          setSelectedProject(sortedProjects[0]?.name);
+           projectData = { projectName: sortedProjects[0]?.name }
+
+        } else {
+          setSelectedProject(selectedProjectName)
+          projectData = { projectName: selectedProjectName };
+        }
 
       const response = await axios.post(
         `${BASE_URL}/budget/listsByProject`,
@@ -98,8 +122,25 @@ const UpdateIncomeBudget = () => {
           },
         }
       );
-
+      setIsLoading(false);
       setData(response?.data?.budgetDataByProj);
+ 
+      if (response?.data?.budgetDataByProj.length > 0) {
+        setIsSuccess(true);
+        setSuccessMessage("Project Budget listed successfully");
+
+        setTimeout(() => {
+          setIsSuccess(false);
+          setSuccessMessage(" ");
+        }, 3000);
+      } else {
+        setErrorMessage("Selected Project Doesn't have Income Budget");
+        setIsError(true);
+
+        setTimeout(() => {
+          setIsError(false);
+        }, 3000);
+      }
 
     } catch (err) {
       console.log("Error fetching Projects", err);
@@ -114,10 +155,22 @@ const UpdateIncomeBudget = () => {
       progress: row.progress,
       category: row.category,
       currentAmount: row.currentAmount,
+      amount: row.amount,
       description: row.description,
       projectName: row.projectName,
     };
-    console.log("updatedData", updatedData)
+
+    if(row.category === undefined) {
+      setErrorMessage("Please, Select Category!");
+      setIsError(true);
+      
+      setTimeout(() => {
+        setErrorMessage("");
+        setIsError(false);
+        }, 3000);
+      return;
+    }
+
     setIsLoading(true);  
     try {
       const response = await axios.post(
@@ -128,7 +181,7 @@ const UpdateIncomeBudget = () => {
         }
       );
       setIsLoading(false);
-      console.log("updatedDataupdatedData", response?.status)
+      console.log("updatedDataupdatedData", response?.data)
 
 
       if (response?.status === 200) {
@@ -147,53 +200,13 @@ const UpdateIncomeBudget = () => {
       setIsError(true);
       setTimeout(() => {
         setIsError(false);
+        setErrorMessage("");
       }, 3000);
-    }
-  };
-  
-
-  const handleSelectProject = async (e) => {
-    setSelectedProject(e.target.value);
-    setIsLoading(true);
-
-    try {
-      const projectData = { projectName: e.target.value };
-
-      const response = await axios.post(
-        `${BASE_URL}/budget/listsByProject`,
-        projectData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setData(response?.data?.budgetDataByProj);
-      setIsLoading(false);
-
-      if (response?.data?.budgetDataByProj.length > 0) {
-        setIsSuccess(true);
-        setSuccessMessage("Project Budget listed successfully");
-
-        setTimeout(() => {
-          setIsSuccess(false);
-          setSuccessMessage(" ");
-        }, 3000);
-      } else {
-        setErrorMessage("Selected Project Doesn't have Income Budget");
-        setIsError(true);
-
-        setTimeout(() => {
-          setIsError(false);
-        }, 3000);
-      }
-    } catch (err) {
-      console.log("Error fetching Projects", err);
     }
   };
 
   const handleCategoryChange = (e, rowIndex) => {
+    console.log('rowIndexrowIndex', e.target.value, rowIndex)
     const updatedData = [...data];
     updatedData[rowIndex].category = e.target.value; // Update the category for the current row
     setData(updatedData); // Update the data state
@@ -232,21 +245,86 @@ const UpdateIncomeBudget = () => {
 
   const handleProgressChange = (e, rowIndex) => {
     const updatedData = [...data];
-    const updatedProgress = e.target.value === "" ? "" : e.target.value; // Allow empty string for deleted values
-    updatedData[rowIndex].progress = updatedProgress; // Update progress
-
+    const updatedProgress = e.target.value === "" ? "" : e.target.value;
+    updatedData[rowIndex].progress = updatedProgress;
+  
     // Recalculate Amount Due to date after Progress change
     if (updatedData[rowIndex].amount && updatedProgress !== "") {
-      updatedData[rowIndex].currentAmount = calculateAmountDue(
-        updatedData[rowIndex].amount,
-        updatedProgress
-      );
+      updatedData[rowIndex].currentAmount = 
+        parseFloat(updatedProgress) === 0 
+          ? (updatedData[rowIndex].amount * updatedProgress)
+          : calculateAmountDue(updatedData[rowIndex].amount, updatedProgress);
     } else {
       updatedData[rowIndex].currentAmount = "";
     }
-
+  
     setData(updatedData); // Update the data state
   };
+
+  const handleAutoSave = async () => {
+    const rowsToSave = data.map(row => ({
+      id: row._id,
+      progress: row.progress,
+      category: row.category,
+      currentAmount: row.currentAmount,
+      amount: row.amount,
+      description: row.description,
+      projectName: row.projectName,
+    }));
+  
+    try {
+      setIsLoading(true);
+  
+      // Send the batch request to update all rows
+      await Promise.all(
+        rowsToSave.map(async (row) => {
+          if (row.category === undefined) {
+            setSuccessMessage("Skiping un selected catogories ... ...");
+            setIsSuccess(true);
+
+            setTimeout(() => {
+              setIsSuccess(false);
+              setSuccessMessage("");
+      
+            }, 3000);
+            
+            return;
+          }
+  
+          await axios.post(
+            `${BASE_URL}/budget/updateIncomes`,
+            row,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+        })
+      );
+  
+      setIsLoading(false);
+      setSuccessMessage("All rows updated successfully!");
+      setIsSuccess(true);
+  
+      // Optional: you can refresh the data after saving all the rows
+      displayRandomProject(selectedProject);
+  
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Error updating rows", err);
+      setErrorMessage("Error updating rows");
+      setIsError(true);
+      setTimeout(() => {
+        setIsError(false);
+        setErrorMessage("");
+
+      }, 3000);
+    }
+  };
+  
+  
 
   const calculateAmountDue = (amount, progress) => {
     if (!amount || !progress) return ""; // If amount or progress is missing, return empty
@@ -320,35 +398,28 @@ const UpdateIncomeBudget = () => {
         )}
         {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
       </div>
-
-      <div>
-        <label style={{ fontStyle: "italic", fontSize: "14px", marginRight: "10px" }}>
-          Select Project:
-        </label>
-        <select
-          id="project-select"
-          value={selectedProject}
-          onChange={handleSelectProject}
-          style={{
-            marginBottom: "10px",
-            marginTop: "5px",
-            padding: "7px",
-            fontSize: "14px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            cursor: "pointer",
-            // width: "60%",
-          }}
-        >
-          <option value="">-- Select a project --</option>
-          {projects?.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
+      <div style={{width: '30%'}} >
+        <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
       </div>
 
+      <div className="auto-save-container" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0px', marginRight: "25px" }}>
+        <button
+          onClick={handleAutoSave}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'} // Change color on hover
+          onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}  // Revert color when not hovered
+        >
+          Auto Save All
+        </button>
+      </div>
       <div className="table-scroll-container">
         <table className="styled-table">
           <thead>
@@ -371,6 +442,9 @@ const UpdateIncomeBudget = () => {
                       column.accessor === "description" ? "300px" : 
                       column.accessor === "code" ? "60px" : 
                       column.accessor === "unit" ? "80px" : "150px",
+                    zIndex:                      
+                       column.accessor === "category" ? 2000 : 0,
+
                   }}
                 >
                   {column.Header}
@@ -379,84 +453,144 @@ const UpdateIncomeBudget = () => {
             </tr>
           </thead>
           <tbody>
-  {data?.map((row, rowIndex) => (
-    isEmptyRow(row) ? (
-      <tr key={rowIndex}>
-        <td colSpan={6} style={{ textAlign: "center", backgroundColor: "#f9f9f9", height: "30px" }}>
-          No Data Available
-        </td>
-      </tr>
-    ) : (
-      <tr key={rowIndex} style={getRowStyle(row)}>
-        {columns.map((column) => (
-          <td key={column.accessor}>
-            {column.accessor === "amount" ||
-            column.accessor === "rate" ||
-            column.accessor === "currentAmount" ? (
-              <span style={getCellStyle(row, column.accessor)}>
-                {formatWithCommas(row[column.accessor])}
-              </span>
-            ) : column.accessor === "progress" ? (
-              <input
-                type="number"
-                value={row[column.accessor] !== null && row[column.accessor] !== "" ? row[column.accessor] : ""}
-                onChange={(e) => handleProgressChange(e, rowIndex)}
-                style={getEditableCellStyle(column.accessor, row)}
-                disabled={!row.amount}
-              />
-            ) : column.accessor === "category" ? (
-              row.amount ? (
-                <select
-                  value={row[column.accessor] || ""}
-                  onChange={(e) => handleCategoryChange(e, rowIndex)}
-                  style={{
-                    ...getEditableCellStyle(column.accessor, row),
-                    width: "100%",  // Fixed width
-                  }}
-                >
-                  <option value="">-- Select Category --</option>
-                  {categories?.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.Name}
-                    </option>
-                  ))}
-                </select>
+            {data?.map((row, rowIndex) => (
+              isEmptyRow(row) ? (
+                <tr key={rowIndex}>
+                  <td colSpan={6} style={{ textAlign: "center", backgroundColor: "#f9f9f9", height: "30px" }}>
+                    No Data Available
+                  </td>
+                </tr>
               ) : (
-                <span>--</span>
+                <tr key={rowIndex} style={getRowStyle(row)}>
+                  {columns.map((column) => (
+                    <td key={column.accessor}>
+                      {column.accessor === "amount" ||
+                      column.accessor === "rate" ||
+                      column.accessor === "currentAmount" ? (
+                        <span style={getCellStyle(row, column.accessor)}>
+                          {formatWithCommas(row[column.accessor])}
+                        </span>
+                      ) : column.accessor === "progress" ? (
+                        <input
+                          type="number"
+                          value={row[column.accessor] !== null && row[column.accessor] !== "" ? row[column.accessor] : ""}
+                          onChange={(e) => handleProgressChange(e, rowIndex)}
+                          style={getEditableCellStyle(column.accessor, row)}
+                          disabled={!row.amount}
+                        />
+                      ) : column.accessor === "category" ? (
+                        row.amount ? (
+                          <div>
+                            {/* Custom Dropdown */}
+                          <div style={{ position: "relative", width: "100%" }}>
+                            <div 
+                              onClick={() => 
+                                setOpenDropdownRow(openDropdownRow === rowIndex ? null : rowIndex)
+                              } 
+                              style={{
+                                border: "1px solid #ccc",
+                                padding: "6px",
+                                cursor: "pointer",
+                                backgroundColor: "#fff",
+                              }}
+                            >
+                              {row[column.accessor] 
+                                ? categories.find(cat => cat.Name === row[column.accessor])?.Name
+                                : "-- Select Category --"
+                              }
+                            </div>
+
+                            {/* Show dropdown only for the selected row */}
+                            {openDropdownRow === rowIndex && (
+                              <div 
+                                style={{
+                                  position: "absolute",
+                                  top: "100%",
+                                  left: 0,
+                                  right: 0,
+                                  maxHeight: "200px",
+                                  overflowY: "auto",
+                                  border: "1px solid #ccc",
+                                  backgroundColor: "#fff",
+                                  zIndex: 10,
+                                }}
+                              >
+                                {/* Search Input */}
+                                <input
+                                  type="text"
+                                  placeholder="Search Category..."
+                                  value={searchTerm}
+                                  onChange={(e) => setSearchTerm(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    padding: "4px",
+                                    boxSizing: "border-box",
+                                    border: "none",
+                                    borderBottom: "1px solid #ddd",
+                                  }}
+                                />
+
+                                {/* Category List */}
+                                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                  {filteredCategories.length > 0 ? (
+                                    filteredCategories.map((category) => (
+                                      <li 
+                                        key={category.id}
+                                        onClick={(e) => {
+                                          handleCategoryChange({ target: { value: category.Name } }, rowIndex);
+                                          setOpenDropdownRow(null);
+                                          setSearchTerm('')
+                                        }}
+                                        style={{
+                                          padding: "6px",
+                                          cursor: "pointer",
+                                          backgroundColor: row[column.accessor] === category.id ? "#f0f0f0" : "#fff"
+                                        }}
+                                      >
+                                        {category.Name}
+                                      </li>
+                                    ))
+                                  ) : (
+                                    <li style={{ padding: "6px", color: "#888" }}>No categories found</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                          </div>
+                        ) : (
+                          <span>--</span>
+                        )
+                      ) : column.accessor === "code" || column.accessor === "description" ? (
+                        <span style={getCellStyle(row, column.accessor)}>
+                          {row[column.accessor]}
+                        </span>
+                      ) : column.accessor === "action" ? (  // Action column with Save button
+                        row.amount ? (  // Only show Save button if there is an amount
+                          <button
+                            onClick={() => handleSave(rowIndex)}
+                            style={{
+                              padding: "5px 10px",
+                              fontSize: "12px",
+                              backgroundColor: "#4CAF50",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Save
+                          </button>
+                        ) : null // No button if no amount
+                      ) : (
+                        <span style={{ width: "100%" }}>{row[column.accessor] || ""}</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
               )
-            ) : column.accessor === "code" || column.accessor === "description" ? (
-              <span style={getCellStyle(row, column.accessor)}>
-                {row[column.accessor]}
-              </span>
-            ) : column.accessor === "action" ? (  // Action column with Save button
-              row.amount ? (  // Only show Save button if there is an amount
-                <button
-                  onClick={() => handleSave(rowIndex)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    backgroundColor: "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Save
-                </button>
-              ) : null // No button if no amount
-            ) : (
-              <span style={{ width: "100%" }}>{row[column.accessor] || ""}</span>
-            )}
-          </td>
-        ))}
-      </tr>
-    )
-  ))}
-</tbody>
-
-
-
+            ))}
+          </tbody>
         </table>
       </div>
 
@@ -497,7 +631,6 @@ const UpdateIncomeBudget = () => {
             background-color: #f1f1f1;
             position: sticky;
             top: 0;
-            z-index: 10;
           }
 
           .styled-table tr:nth-child(even) {
@@ -562,7 +695,6 @@ const UpdateIncomeBudget = () => {
             #project-select {
                 width: 100%;
             }
-        }
 
         `}
       </style>

@@ -4,14 +4,14 @@ import axios from "axios";
 import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
+import ProjectSelection from "../Category/AddProject";
 
 const ExcelTableImporter = () => {
   const [data, setData] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   // const [projectName, setProjectName] = useState('');
   const [selectedProject, setSelectedProject] = useState("");
-  const [progress, setProgress] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
   const [projects, setProjects] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -222,10 +222,6 @@ const ExcelTableImporter = () => {
     return {};
   };
 
-  const handleSelectProject = (e) => {
-    setSelectedProject(e.target.value);
-  };
-
   return (
     <div className="table-container">
       {/* Popup Form */}
@@ -249,32 +245,8 @@ const ExcelTableImporter = () => {
             )}
             <form onSubmit={handleSubmit}>
 
-              <div>
-                <label style={{ fontStyle: 'italic', fontSize: '14px', marginRight: '10px' }}>
-                  Select Project:
-                </label>
-                  <select
-                    id="project-select"
-                    value={selectedProject}
-                    onChange={handleSelectProject}
-                    style={{
-                      marginBottom: '10px',
-                      marginTop: '5px',
-                      padding: '10px',
-                      fontSize: '14px',
-                      borderRadius: '4px',
-                      border: '1px solid #ccc',
-                      cursor: 'pointer',
-                      width: '100%'
-                    }}
-                  >
-                    <option value="">-- Select a project --</option>
-                    {projects?.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>           
+              <div className="responsive-container">
+                <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
               </div>
               
               <div style={styles.formField}>
