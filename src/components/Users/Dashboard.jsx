@@ -96,6 +96,8 @@ const TransactionOverview = () => {
   const totals = transactions?.length
     ? transactions?.reduce(
         (acc, transaction) => {
+          console.log('transaction', transactions)
+
           if (transaction?.incomeAmount) acc.income += transaction?.incomeAmount;
           else if (transaction?.expenseAmount) acc.expense += transaction?.expenseAmount;
           return acc;
@@ -103,6 +105,8 @@ const TransactionOverview = () => {
         { income: 0, expense: 0 }
       )
     : { income: 0, expense: 0 };
+
+    console.log('total', totals)
 
   // Data structure for the chart
   const data = {

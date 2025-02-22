@@ -27,6 +27,11 @@ const ProjectBOQ = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [showModal, setShowModal] = useState(false);
+  const [email, setEmail] = useState("");
+  const [accessRight, setAccessRight] = useState("");
+  const [projectId, setProjectId] = useState(null);
+  const [projectName, setProjectName] = useState("")
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -86,9 +91,7 @@ const ProjectBOQ = () => {
       description: formData.description,
     };
 
-    console.log("projectData", projectData);
-
-    try {
+  try {
       setIsLoading(true);
       await axios.post(`${BASE_URL}/projects/create`, projectData,
         { 
@@ -129,6 +132,71 @@ const ProjectBOQ = () => {
     const day = String(d.getDate()).padStart(2, '0');
     const year = d.getFullYear();
     return `${month}/${day}/${year}`;
+  };
+
+  const handleAssign = (id, projectName) => {
+    setProjectId(id); // Save the project ID
+    setShowModal(true); // Open the modal
+    setProjectName(projectName)
+  };
+
+  const handleSubmitAssigns = async(e) => {
+    e.preventDefault();
+    if (!email || !accessRight) {
+      setErrorMessage("Both fields are required!");
+      setIsError(true);
+      return;
+    }
+    console.log("Assigned Project ID:", projectId);
+    console.log("User Email:", email);
+    console.log("Access Right:", accessRight);
+    console.log("projectName", projectName)
+
+    const assignData = {
+      userEmail: email,
+      accessRight: accessRight,
+      projectId: projectId,
+      projectName: projectName,
+    }
+    try {
+     setIsLoading(true);
+     const assigningProject = await axios.post(`${BASE_URL}/users/assignProject`, assignData,
+        { 
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('assigningProject', assigningProject)
+
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage(assigningProject.data.message);
+      fetchProjects();
+
+      setAccessRight("")
+      setEmail("")
+
+      setTimeout(() => {
+        setIsSuccess(false); 
+        setSuccessMessage(" ");
+
+        setFormData(prevKey => prevKey + 1);
+      }, 3000);
+      
+    } catch (error) {
+      console.log('error', error.response.data.message)
+
+      setIsLoading(false);
+      setErrorMessage(error.response.data.message);
+      setIsError(true);
+
+      setTimeout(() => {
+        setIsError(false);
+      }, 4000);
+      console.error("There was an error creating the transaction:", error);
+    }
   };
   
 
@@ -190,13 +258,14 @@ const ProjectBOQ = () => {
                     <th className="px-4 py-2 border border-gray-300">End Date</th>
                     <th className="px-4 py-2 border border-gray-300">Project Manager</th>
                     <th className="px-4 py-2 border border-gray-300">Description</th>
+                    <th className="px-4 py-2 border border-gray-300">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projects
                   ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                   ?.map((project) => (
-                    <tr key={project.id} className="bg-gray-50 hover:bg-gray-100">
+                    <tr key={project._id} className="bg-gray-50 hover:bg-gray-100">
                       <td className="px-4 py-2 border border-gray-300">{project.projectCode}</td>
                       <td className="px-4 py-2 border border-gray-300">{project.name}</td>
                       <td className="px-4 py-2 border border-gray-300">{project.location}</td>
@@ -204,6 +273,14 @@ const ProjectBOQ = () => {
                       <td className="px-4 py-2 border border-gray-300">{formatDate(project.endDate)}</td>
                       <td className="px-4 py-2 border border-gray-300">{project.manager}</td>
                       <td className="px-4 py-2 border border-gray-300">{project.description || "No description"}</td>
+                      <td className="px-4 py-2 border border-gray-300">
+                        <button
+                          onClick={() => handleAssign(project._id, project.name)}
+                          style={{fontSize: '12px', whiteSpace: 'nowrap' ,backgroundColor: '#3d8c40', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px', marginRight: '5px'}}
+                        >
+                          Assign To user
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -213,6 +290,115 @@ const ProjectBOQ = () => {
             )}
           </div>
         )}
+
+{showModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: "0",
+            left: "0",
+            right: "0",
+            bottom: "0",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+            }}
+          >
+            <h3 style={{margin: '10px', fontSize: '18px', textAlign: 'center'}}>Assign Project Access Rights to user </h3>
+            <h3 style={{margin: '10px', fontSize: '14px', textAlign: 'center'}}>Project name: {projectName}</h3>
+
+            <form onSubmit={handleSubmitAssigns}>
+              <div style={{ marginBottom: "10px" }}>
+                <label
+                  htmlFor="email"
+                  style={{ display: "block", fontWeight: "bold", marginBottom: "5px" }}
+                >
+                  User Email:
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    fontSize: "14px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "10px" }}>
+                <label
+                  htmlFor="accessRight"
+                  style={{ display: "block", fontWeight: "bold", marginBottom: "5px" }}
+                >
+                  Access Right:
+                </label>
+                <select
+                  id="accessRight"
+                  value={accessRight}
+                  onChange={(e) => setAccessRight(e.target.value)}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    fontSize: "14px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <option value="">Select Access Right</option>
+                  <option value="ReadOnly">ReadOnly</option>
+                  <option value="Write">Write</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  style={{
+                    backgroundColor: "#f44336",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    borderRadius: "4px",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: "#4CAF50",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    borderRadius: "4px",
+                  }}
+                >
+                  Assign
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
 
         {/* Import BOQ Section */}

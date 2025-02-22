@@ -28,7 +28,7 @@ const CreateTransaction = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [categories, setCategories] = useState([]);
 
-  const [projects, setProjects] = useState([]);
+  const [selectedTransctionData, setSelectedTransctionData] = useState();
   const [transactionData, setTransactionData] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [switchToEditMode, setSwitchToEditMode] = useState(false);
@@ -72,8 +72,8 @@ const CreateTransaction = () => {
           },
         }
       );
-      setTransactionData(response.data);
-      setSelectableCategories(response.data)
+      setTransactionData(response.data.myTransactions);
+      setSelectableCategories(response.data.myTransactions)
 
       console.log('Transactions:', response.data);
     } catch (err) {
@@ -89,8 +89,6 @@ const CreateTransaction = () => {
       });
       const projectsData = prjResponse?.data?.myProjects || [];
       const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-      setProjects(sortedProjects);
       
       const selectedProjectName = localStorage.getItem("projectName") || null
 
@@ -137,7 +135,6 @@ const CreateTransaction = () => {
     setIncomeReport(response.data.myReports)
     setIsLoading(false)
 
-    console.log('fffffffffffffffffffff', response.data.myReports)
   }
 
   // Handle form submission
@@ -169,7 +166,7 @@ const CreateTransaction = () => {
     console.log('transactionDatatransactionData', transactionData)
     try {
       setIsLoading(true);
-      await axios.post(`${BASE_URL}/transactions/create`, transactionData,
+      const res = await axios.post(`${BASE_URL}/transactions/create`, transactionData,
         { 
           headers: {
             Authorization: `Bearer ${token}`,
@@ -179,7 +176,8 @@ const CreateTransaction = () => {
 
       setIsLoading(false);
       setIsSuccess(true);
-      setSuccessMessage("Transaction recorded successfully");
+      // setSuccessMessage("Transaction recorded successfully");
+      setSuccessMessage(res.data.message);
 
       setTimeout(() => {
         setIsSuccess(false); 
@@ -190,14 +188,13 @@ const CreateTransaction = () => {
       
     } catch (error) {
       setIsLoading(false);
-      setErrorMessage("Something went wrong. Please try again!");
+      setErrorMessage(error.response.data.message);
       setIsError(true);
 
       setTimeout(() => {
         setIsError(false);
 
-      }, 3000);
-      console.error("There was an error creating the transaction:", error);
+      }, 5000);
     }
   };
 
@@ -223,8 +220,13 @@ const CreateTransaction = () => {
       fetchTransactionData();
     } catch (error) {
       setIsLoading(false);
+      setErrorMessage(error.response.data.message);
+      setIsError(true);
 
-      console.error("Error deleting transaction:", error);
+      setTimeout(() => {
+        setIsError(false);
+
+      }, 5000);
     }
   }; 
   
@@ -235,11 +237,9 @@ const CreateTransaction = () => {
     fetchReportData()
 
     const dataToEdit = transactionData.find((transaction) => transaction._id === id);
-
-    console.log("dataToEditdataToEditdataToEdit", fullSelectedReport)
-
+    setSelectedTransctionData(dataToEdit)
     setAmount(dataToEdit.amount);
-    setCategory(dataToEdit.category);
+    setCategory((dataToEdit?.incomeReportData?.incomeCategory) ? dataToEdit?.incomeReportData?.incomeCategory : dataToEdit.category);
     setDate(dataToEdit.date);
     setDescription(dataToEdit.description);
     setSelectedProject(dataToEdit.projectName);
@@ -247,14 +247,25 @@ const CreateTransaction = () => {
     setUnit(dataToEdit.unit);
     setPaymentMethod(dataToEdit.paymentMethod);
     setPrice(dataToEdit.price);
-    setSelectedReport(fullSelectedReport.description || "")
+    setSelectedReport(dataToEdit?.incomeReportData?.incomeDescription ? dataToEdit?.incomeReportData?.incomeDescription : "")
 
   };
 
   const handleSaveUpdatedTransaction = async () => {
-    // Validate all fields
-    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport
-    ) {
+    let recordReport 
+
+    const thisReport = incomeReport.find((rep) => rep._id === selectedTransctionData?.incomeReportData?.reportId)
+    recordReport = thisReport ? thisReport : fullSelectedReport
+
+    console.log('selectedProjectselectedProjectselectedProject', recordReport)
+
+
+    if ( !recordReport) {
+      setError("Please ReSelect income from income field!");
+      return;
+    }
+
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price) {
       setError("Please fill in all required fields!");
       return;
     }
@@ -270,13 +281,13 @@ const CreateTransaction = () => {
       unit,
       paymentMethod,
       price,
-      fullSelectedReport
+      fullSelectedReport: recordReport
 
     };
 
     try {
       setIsLoading(true);
-      await axios.put(`${BASE_URL}/transactions/update/${transactionId}`, transactionData,
+      const res = await axios.put(`${BASE_URL}/transactions/update/${transactionId}`, transactionData,
         { 
           headers: {
             Authorization: `Bearer ${token}`,
@@ -284,21 +295,22 @@ const CreateTransaction = () => {
         }
       );
 
+      console.log('ressss', res)
+
       setIsLoading(false);
       setIsSuccess(true);
-      setSuccessMessage("Transaction updated successfully");
+      setSuccessMessage(res.data.message);
 
       setTimeout(() => {
         setIsSuccess(false); 
         resetForm();
         setShowModal(false);
-        setSwitchToEditMode(false);
         fetchTransactionData();
      }, 3000);
 
     } catch (error) {
       setIsLoading(false);
-      setErrorMessage("something went wrong. Please try again!");
+      setErrorMessage(error.response.data.message);
       setIsError(true);
 
       setTimeout(() => {
@@ -441,9 +453,11 @@ const CreateTransaction = () => {
   const handleItemClick = (e, report) => {
     setOpenDropdownRow(false)
     setSearchTerm('');
-    console.log("descriptiondescriptiondescription", report)
+    // console.log("descriptiondescriptiondescription", report)
     setSelectedReport(e.target.value)
     setFullSelectedReport(report)
+    setCategory((report?.incomeReportData?.incomeCategory) ? report?.incomeReportData?.incomeCategory : report.category);
+
   };
 
    // Filter the incomeReport based on the search term
@@ -777,7 +791,7 @@ return (
               <label className="form-label">Date</label>
               <input
                 type="date"
-                value={date}
+                value={date ? (new Date(date)?.toISOString().split('T')[0]) : ''}
                 onChange={(e) => setDate(e.target.value)}
                 className="form-input"
                 required
@@ -809,6 +823,7 @@ return (
                   resetForm();
                   setSwitchToEditMode(false);
                   setSelectedReport('')
+                  setFullSelectedReport(null)
                 }}
                 className="close-btn"
               >

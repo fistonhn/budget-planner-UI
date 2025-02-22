@@ -83,7 +83,7 @@ export default function PrivateNavbar() {
                     onClick={() => handleItemClick("addTransaction")}
                     className={`inline-flex items-center border-b-2 ${selectedItem === "addTransaction" ? "border-indigo-500 text-gray-900" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
                   >
-                    Add Transaction
+                    Transactions
                   </Link>
                   <Link
                     to="/profile"
@@ -140,7 +140,7 @@ export default function PrivateNavbar() {
                   as="button"
                   className={`block border-l-4 ${selectedItem === "addTransaction" ? "border-indigo-500 text-gray-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"}`}
                 >
-                  Add Transaction
+                  Transactions
                 </Disclosure.Button>
               </Link>
               <Link to="/profile" onClick={() => handleItemClick("profile")}>

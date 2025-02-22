@@ -195,13 +195,13 @@ const UpdateIncomeBudget = () => {
       }
     } catch (err) {
       setIsLoading(false);
-      console.error("Error updating data", err);
-      setErrorMessage("Error updating data");
+      console.log("Error updating data", err);
+      setErrorMessage(err.response.data.message);
       setIsError(true);
       setTimeout(() => {
         setIsError(false);
         setErrorMessage("");
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -314,13 +314,13 @@ const UpdateIncomeBudget = () => {
     } catch (err) {
       setIsLoading(false);
       console.error("Error updating rows", err);
-      setErrorMessage("Error updating rows");
+      setErrorMessage(err.response.data.message);
       setIsError(true);
       setTimeout(() => {
         setIsError(false);
         setErrorMessage("");
 
-      }, 3000);
+      }, 5000);
     }
   };
   

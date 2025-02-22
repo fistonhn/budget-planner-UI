@@ -111,13 +111,13 @@ const ExcelTableImporter = () => {
      }, 4000);
      
     } catch (error) {
-        setErrorMessage("Please Import valid BOQ file and try again!");
+        setIsLoading(false);
+        setErrorMessage(error.response.data.message);
         setIsError(true);
 
         setTimeout(() => {
           setIsError(false); 
-          setIsLoading(false);
-       }, 4000);
+       }, 5000);
 
     }
   }

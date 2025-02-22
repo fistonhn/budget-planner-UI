@@ -19,33 +19,11 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
   useEffect(() => {
     fetchProjects();
     fetchTransactionProjects();
-    allAvProjects();
   }, []);
-
-
-  const allAvProjects = () => {
-    const array1 = transactionDatProjects;
-    
-    const array2 = filteredProjects
-    
-    // Convert array2 objects to have 'projectName' field
-    const formattedArray2 = array2.map(item => ({
-      ...item,
-      projectName: item.name
-    }));
-    
-    // Combine both arrays
-    const combinedArray = [...array1, ...formattedArray2];
-    // Remove duplicates based on projectName
-    const uniqueArray = Array.from(new Map(combinedArray.map(item => [item.projectName, item])).values());
-    setFilteredProjects(uniqueArray)
-    setProjects(uniqueArray)
-        
-  }
 
   const openDropDown = () => {
     setDropdownOpen(!dropdownOpen)
-    allAvProjects()
+    fetchProjects()
   }
 
   const fetchTransactionProjects = async () => {
@@ -73,6 +51,7 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
 
       setProjects(response.data.myProjects);
       setFilteredProjects(response.data.myProjects);
+      console.log('response.data.myProjects', response.data.myProjects)
     } catch (err) {
       console.error("Error fetching projects", err);
     }
@@ -126,9 +105,9 @@ const ProjectSelection = ({ selectedProject, setSelectedProject }) => {
                 <div
                   key={index}
                   className="dropdown-item"
-                  onClick={() => handleSelectProject(project.projectName)}
+                  onClick={() => handleSelectProject(project.name)}
                 >
-                  {project.projectName?.charAt(0)?.toUpperCase() + project?.projectName?.slice(1)}
+                  {project.name?.charAt(0)?.toUpperCase() + project?.name?.slice(1)}
                 </div>
               ))}
           </div>
