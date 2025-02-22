@@ -470,7 +470,8 @@ const CreateTransaction = () => {
     fetchReportData()
 
   }
-  
+  const totalAmount = (transactionData.reduce((sum, transaction) => sum + transaction.amount, 0));
+
 
 return (
   <div>
@@ -549,6 +550,9 @@ return (
 
     <div className="transaction-table">
       <h3 className="table-title">Transaction Overview</h3>
+      <div style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f2f2f2', fontWeight: 'bold' }}>
+      Total Amount: ${totalAmount.toLocaleString()}
+    </div>
       <table className="table">
         <thead>
           <tr>
