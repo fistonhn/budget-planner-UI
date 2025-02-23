@@ -106,8 +106,6 @@ const TransactionOverview = () => {
       )
     : { income: 0, expense: 0 };
 
-    console.log('total', totals)
-
   // Data structure for the chart
   const data = {
     labels: ["Income", "Expense"],
@@ -183,8 +181,6 @@ const TransactionOverview = () => {
 
   const processedData = processData(transactions);
 
-  console.log('processedDataprocessedData', processedData)
-
   const cellStyle = {
     border: "1px solid black",
     padding: "8px",
@@ -259,7 +255,7 @@ const TransactionOverview = () => {
                 <React.Fragment key={index}>
                   <tr onClick={() => handleRowClick(item.category)} style={{ cursor: "pointer" }}>
                     <td style={cellStyle}>{letter}</td>
-                    <td style={cellStyle}>{item.category}</td>
+                    <td style={cellStyle}>  {item.category.charAt(0).toUpperCase() + item.category.slice(1)}</td>
                     <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
                     <td style={incomeHeaderStyle}>{formatNumber(item.amount)}</td>
                     <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
@@ -298,8 +294,8 @@ const TransactionOverview = () => {
                                 color: "gray",
                               }}
                             >
-                              {descItem.description}
-                            </td> {/* Description under Category */}
+                              {descItem.description.charAt(0).toUpperCase() + descItem.description.slice(1)}
+                            </td>
                             <td
                               style={{
                                 border: "1px solid gray",

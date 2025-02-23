@@ -9,8 +9,7 @@ import ProjectSelection from "../Category/AddProject";
 const ExcelTableImporter = () => {
   const [data, setData] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  // const [projectName, setProjectName] = useState('');
-  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedProject, setSelectedProject] = useState('');
   const [progress, setProgress] = useState(0);
   const [projects, setProjects] = useState([]);
 
@@ -32,7 +31,7 @@ const ExcelTableImporter = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [setSelectedProject]);
 
   const fetchProjects = async () => {
     try {
@@ -55,7 +54,6 @@ const ExcelTableImporter = () => {
 
   const togglePopup = () => {
     setIsOpen(!isOpen);
-    // setData([]);
   }
 
   const headerColors = {
@@ -72,6 +70,8 @@ const ExcelTableImporter = () => {
   const token = getUserFromStorage();
 
   const sendDataToDatabase = async () => {
+    const selectedProjectName = localStorage.getItem("projectName") || null
+    setSelectedProject(selectedProjectName)
 
     if(data.length === 0) {
         setErrorMessage("Please import a valid BOQ file before sending to database!");
@@ -231,18 +231,6 @@ const ExcelTableImporter = () => {
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#000000', textAlign: 'center', marginBottom: '20px' }}>
               Adjust project progress
             </h2> 
-            {isError && (
-                <AlertMessage
-                    type="error"
-                    message={errorMessage}
-                />                                                                                      
-            )}
-            {isSuccess && (
-                <AlertMessage
-                type="success"
-                message={successMessage}
-                />
-            )}
             <form onSubmit={handleSubmit}>
 
               <div className="responsive-container">
@@ -278,18 +266,21 @@ const ExcelTableImporter = () => {
         </div>
       )}
       {/* Display alert message */}
+      <div className='alert-message-container'>
       {isError && (
-        <AlertMessage
-          type="error"
-          message={errorMessage}
-        />
+          <AlertMessage
+            type="error"
+            message={errorMessage}
+          />                                                                                       
       )}
       {isSuccess && (
-        <AlertMessage
-          type="success"
-          message={successMessage}
-        />
+          <AlertMessage
+            type="success"
+            message={successMessage}
+          />
       )}
+      {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
+    </div>
       <label htmlFor="file-upload" className="import-budget-button">
         Import contract BOQ
       </label>

@@ -10,7 +10,7 @@ const validationSchema = Yup.object({
 const UpdatePassword = () => {
   const formik = useFormik({
     initialValues: {
-      password: "123456",
+      password: "",
     },
     // Validations
     validationSchema,

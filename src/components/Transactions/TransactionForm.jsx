@@ -38,9 +38,16 @@ const CreateTransaction = () => {
   const [selectableCategories, setSelectableCategories] = useState([])
   const [incomeReport, setIncomeReport] = useState([])
   const [openDropdownRow, setOpenDropdownRow] = useState(false);
+  const [openDropdownRowFile, setOpenDropdownRowFile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReport, setSelectedReport] = useState("");
+  const [selectedReportFile, setSelectedReportFile] = useState("");
+
   const [fullSelectedReport, setFullSelectedReport] = useState(null)
+  const [fullSelectedReportFile, setFullSelectedReportFile] = useState(null)
+
+  const [excelFileData, setExcelFileData] = useState([])
+  const [showProjectNameForm, setShowProjectNameForm] = useState(false)
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
@@ -142,8 +149,7 @@ const CreateTransaction = () => {
     e.preventDefault();
 
     // Validate all fields
-    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport
-    ) {
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport) {
       setError("Please fill all required fields! Including select income field.");
       setTimeout(() => {
         setError('')
@@ -342,46 +348,85 @@ const CreateTransaction = () => {
             acc[columnName] = row[colIndex];
             return acc;
           }, {});
-        }).filter(item => item !== null); // Filter out the null (header row)
+        }).filter(item => item !== null);
 
-        try {
-          setIsLoading(true);
-          await axios.post(
-            `${BASE_URL}/transactions/importTransactions`,
-            jsonFormattedData,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setIsLoading(false);
-    
-          setFileName("");
-          setIsSuccess(true);
-          setSuccessMessage("Transactions imported successfully");
-    
-          fetchTransactionData();
-    
-          // Fetch updated categories
-          setTimeout(() => {
-            setIsSuccess(false);
-          }, 3000);
-        } catch (err) {
-          console.log('err', err)
-          setIsLoading(false);
-          setErrorMessage("Invalid file format! Please check file columns.");
-          setIsError(true);
+        setExcelFileData(jsonFormattedData)
+        setShowProjectNameForm(true);
+        console.log('excelFileData', jsonFormattedData)
 
-          setTimeout(() => {
-            setIsError(false);
-
-          }, 3000);
-          console.error("There was an error creating the transaction:", error);
-        }
   
       };
   
       // Read the file as an array buffer
       reader.readAsArrayBuffer(file);
+
     }
   };
+  const closeShowProjectNameForm = () => {
+    setShowProjectNameForm(false);
+    setFullSelectedReportFile(null);
+    setFileName("");
+    setSelectedReportFile('')
+    setCategory('')
+  };
+
+  const saveImportedFileData = async(e) => {
+    e.preventDefault();
+
+    try {
+      const selectedProjectName = localStorage.getItem("projectName") || null
+      if(!excelFileData || !category) {
+
+        setIsError(true);
+        setErrorMessage("Error! Please fill in all fields!");
+
+        setTimeout(() => {
+          setIsError(false);
+          setErrorMessage('')
+        }, 3000);
+        return
+      }
+      const saveFileData = {
+        projectName: selectedProjectName,
+        fileExcelData: excelFileData,
+        category: category
+      }
+
+      // console.log('saveFileDatakcnsociio', saveFileData)
+
+      setIsLoading(true);
+      await axios.post(
+        `${BASE_URL}/transactions/importTransactions`,
+        saveFileData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setShowProjectNameForm(false)
+      setFullSelectedReportFile(null)
+      setIsLoading(false);
+
+      setFileName("");
+      setIsSuccess(true);
+      setSuccessMessage("Transactions imported successfully");
+      setCategory('')
+
+      fetchTransactionData();
+
+      // Fetch updated categories
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+    } catch (err) {
+      console.log('err', err)
+      setIsLoading(false);
+      setErrorMessage(error.response.data.message);
+      setIsError(true);
+
+      setTimeout(() => {
+        setIsError(false);
+
+      }, 3000);
+    }
+  }
 
   // Reset form fields after submission
   const resetForm = () => {
@@ -445,7 +490,6 @@ const CreateTransaction = () => {
     setOpenDropdownRow(true);
   };
 
-  // Handle input blur
   const handleBlur = () => {
     // Add a slight delay before closing the dropdown to allow clicking on list items
     setTimeout(() => setOpenDropdownRow(false), 200);
@@ -453,10 +497,16 @@ const CreateTransaction = () => {
   const handleItemClick = (e, report) => {
     setOpenDropdownRow(false)
     setSearchTerm('');
-    // console.log("descriptiondescriptiondescription", report)
     setSelectedReport(e.target.value)
     setFullSelectedReport(report)
     setCategory((report?.incomeReportData?.incomeCategory) ? report?.incomeReportData?.incomeCategory : report.category);
+  };
+  const handleItemClickFile = (e, report) => {
+    setSelectedReportFile(e.target.value)
+    setSearchTerm('');
+    setFullSelectedReportFile(report)
+    setCategory((report?.incomeReportData?.incomeCategory) ? report?.incomeReportData?.incomeCategory : report.category);
+    setOpenDropdownRowFile(false)
 
   };
 
@@ -471,6 +521,13 @@ const CreateTransaction = () => {
 
   }
   const totalAmount = (transactionData.reduce((sum, transaction) => sum + transaction.amount, 0));
+
+  const openIncomeDropdownFile = (e) => {
+    fetchReportData()
+    // console.log('incomeReport', incomeReport)
+    openDropdownRowFile === true ? setOpenDropdownRowFile(false) : setOpenDropdownRowFile(true)
+
+  }
 
 
 return (
@@ -551,7 +608,7 @@ return (
     <div className="transaction-table">
       <h3 className="table-title">Transaction Overview</h3>
       <div style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f2f2f2', fontWeight: 'bold' }}>
-      Total Amount: ${totalAmount.toLocaleString()}
+      Total Amount: {totalAmount.toLocaleString()}
     </div>
       <table className="table">
         <thead>
@@ -706,7 +763,7 @@ return (
                           e.target.style.transform = 'scale(1)'; // Reset size
                         }}
                       >
-                        <span>{report.description}</span>
+                        <span>{`${report.description}:   `}</span>
                         <span>{formatWithCommas(report.amount)}</span>
                       </div>
 
@@ -838,6 +895,155 @@ return (
         </div>
       </div>
     )}
+     {showProjectNameForm && (
+        <div  style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          // zIndex: 1000,
+          animation: 'fadeIn 0.3s ease-in-out', // Fade-in effect
+        }}
+      >
+        <div 
+          style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            width: '400px',
+            maxWidth: '90%',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+            animation: 'slideIn 0.3s ease-in-out', // Slide-in effect
+          }}
+        >
+          <h2 style={{paddingBottom: '10px', textAlign: 'center', fontSize: '18px'}}>Select Project name & Report income</h2>
+          <div className="form-group-categories">
+            <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
+          </div>
+          <div style={{margin: '0px 21px'}}>
+            <label style={{ fontSize: '18px' }}>Select Income for this Transaction: </label>
+            <div style={{ fontStyle: 'italic', fontSize: '12px' }}>If no income, create one from the income tab</div>
+          </div>
+          <div 
+              onClick={() => openIncomeDropdownFile() } 
+              style={{ border: "1px solid #ccc", padding: "6px", cursor: "pointer", backgroundColor: "#fff",margin: '0px 21px' }} >
+                {selectedReportFile
+                ?   selectedReportFile  
+                : "-- Select Income --"
+            }</div>
+            {openDropdownRowFile && (
+                <div style={{ marginLeft: '21px'}}>
+                  <input
+                    type="text"
+                    placeholder="Search Incomes..."
+                    value={searchTerm}
+                    onChange={(e) => {setSearchTerm(e.target.value), setSelectedReport('')}}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    style={{ width: '100%', padding: '4px', boxSizing: 'border-box', border: 'none', borderBottom: '1px solid #000', }}
+                  />
+                <div
+                  key='{report.idjjjjjjjmm}'
+                  style={{
+                    listStyle: 'none',
+                    padding: 0,
+                    margin: 0,
+                    maxHeight: '500px',
+                    overflowY: 'auto',
+                    border: '1px solid #ccc',
+                    backgroundColor: '#fff',
+                    position: 'absolute',
+                    zIndex: 9999,
+                  }}
+                >
+                  <div style={{marginLeft: '10px', fontStyle: 'italic'}}> All Incomes</div>
+                  {filteredReports.length > 0 ? (
+                    filteredReports
+                    ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                    ?.map((report) => (
+                      <div
+                        key={report.id}
+                        style={{
+                          padding: '10px 15px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          backgroundColor: '#f9f9f9',
+                          transition: 'background-color 0.3s, transform 0.2s',
+                          marginBottom: '5px',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          color: '#333',
+                        }}
+                        onClick={() => handleItemClickFile({ target: { value: report.description } }, report)}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#e0e0e0'; // Highlight on hover
+                          e.target.style.transform = 'scale(1.02)'; // Slightly enlarge on hover
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#f9f9f9'; // Reset background color
+                          e.target.style.transform = 'scale(1)'; // Reset size
+                        }}
+                      >
+                        <span>{`${report.description}:   `}</span>
+                        <span>{formatWithCommas(report.amount)}</span>
+                      </div>
+
+                    ))
+                  ) : (
+                    <li style={{ padding: '6px', color: '#888' }}>No categories found</li>
+                  )}
+                </div>
+                </div>
+            )}
+
+
+          <div className="form-group-categories" >
+            <CategorySelection category={category} setCategory={setCategory} />
+            <div style={{ fontStyle: 'italic', fontSize: '12px', marginTop: '-40px', marginLeft: '21px', marginBottom: '50px' }}>Select Income above, Category generated Automatical</div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+            <button
+              onClick={saveImportedFileData}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '5px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '16px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+              }}
+            >
+              Save
+            </button>
+            <button
+              onClick={closeShowProjectNameForm}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '5px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '16px',
+                backgroundColor: '#f44336',
+                color: 'white',
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      )}
   </div>
 );
 
