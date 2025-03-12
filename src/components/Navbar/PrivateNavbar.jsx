@@ -22,6 +22,8 @@ export default function PrivateNavbar() {
     dispatch(logoutAction());
     // Remove the user from storage
     localStorage.removeItem("userInfo");
+    localStorage.removeItem("projectName");
+
   };
 
   // Handle Item Click

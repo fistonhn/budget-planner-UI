@@ -414,8 +414,8 @@ const UpdateIncomeBudget = () => {
             cursor: 'pointer',
             fontSize: '14px',
           }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'} // Change color on hover
-          onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}  // Revert color when not hovered
+          onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'} 
+          onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
         >
           Auto Save All
         </button>

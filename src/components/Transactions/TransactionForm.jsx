@@ -27,6 +27,7 @@ const CreateTransaction = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [categories, setCategories] = useState([]);
+  const [selectedTransactions, setSelectedTransactions] = useState([]);
 
   const [selectedTransctionData, setSelectedTransctionData] = useState();
   const [transactionData, setTransactionData] = useState([]);
@@ -39,6 +40,7 @@ const CreateTransaction = () => {
   const [incomeReport, setIncomeReport] = useState([])
   const [openDropdownRow, setOpenDropdownRow] = useState(false);
   const [openDropdownRowFile, setOpenDropdownRowFile] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReport, setSelectedReport] = useState("");
   const [selectedReportFile, setSelectedReportFile] = useState("");
@@ -67,12 +69,20 @@ const CreateTransaction = () => {
 
   }, [quantity, price]);
    useEffect(() => {
+      if (selectedProject) {
+        fetchTransactionData();
+      }
+    }, [selectedProject]);
+
+   useEffect(() => {
     fetchProjectData();
     }, []);
 
   const fetchTransactionData = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/transactions/lists`, 
+      const getSelectedName = localStorage.getItem("projectName")
+      const projectName = { projectName: getSelectedName };
+      const response = await axios.post(`${BASE_URL}/transactions/lists`, projectName,
         { 
           headers: {
             Authorization: `Bearer ${token}`,
@@ -204,15 +214,16 @@ const CreateTransaction = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
     try {
       setIsLoading(true);
 
-        await axios.delete(`${BASE_URL}/transactions/delete/${id}`, {
+        await axios.delete(`${BASE_URL}/transactions/delete/${transactionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      setShowDeleteModal(false);
       setIsLoading(false);
       setIsSuccess(true);
       setSuccessMessage("Transaction deleted successfully");
@@ -428,7 +439,6 @@ const CreateTransaction = () => {
     }
   }
 
-  // Reset form fields after submission
   const resetForm = () => {
     setAmount("");
     setCategory("");
@@ -510,7 +520,6 @@ const CreateTransaction = () => {
 
   };
 
-   // Filter the incomeReport based on the search term
    const filteredReports = incomeReport.filter((report) =>
     report.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -528,6 +537,74 @@ const CreateTransaction = () => {
     openDropdownRowFile === true ? setOpenDropdownRowFile(false) : setOpenDropdownRowFile(true)
 
   }
+
+  const handleSelectAllChange = () => {
+    if (selectedTransactions.length === transactionData.length) {
+      setSelectedTransactions([]); // Deselect all if already all are selected
+    } else {
+      setSelectedTransactions(transactionData.map(transaction => transaction._id)); // Select all
+    }
+  };
+
+  const showHandleDelete = (id) => {
+    setShowDeleteModal(true);
+    setTransactionId(id);
+  }
+
+  const handleCheckboxChange = (transactionId) => {
+    if (selectedTransactions.includes(transactionId)) {
+      setSelectedTransactions(selectedTransactions.filter(id => id !== transactionId));
+    } else {
+      setSelectedTransactions([...selectedTransactions, transactionId]);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (selectedTransactions.length === 0) {
+      // Handle the case where no transactions are selected
+      setErrorMessage("No transactions selected for deletion.");
+      setIsError(true);
+  
+      setTimeout(() => {
+        setIsError(false);
+      }, 3000);
+      return;
+    }
+
+    console.log("Deleting transactions with IDs:", selectedTransactions);
+  
+    try {
+      setIsLoading(true);
+      for (let transactionId of selectedTransactions) {
+        await axios.delete(`${BASE_URL}/transactions/delete/${transactionId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+  
+      setSelectedTransactions([])
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage("Transactions deleted successfully");
+  
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+  
+      fetchTransactionData();
+    } catch (error) {
+      setIsLoading(false);
+      setErrorMessage(error.response?.data?.message || "An error occurred");
+      setIsError(true);
+      setSelectedTransactions([])
+  
+      setTimeout(() => {
+        setIsError(false);
+      }, 5000);
+    }
+  };
+  
 
 
 return (
@@ -580,36 +657,115 @@ return (
 
      {/* Filter Section */}
      <div className="filter-section-nnnnn">
-        <div style={{ maxWidth: '30%', float: 'right', marginRight: '50px', fontSize: '12px' }}>
+        <div 
+          style={{
+            float: 'right', 
+            marginRight: '50px', 
+            fontSize: '12px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+          }}
+        >
+          
+          <div className="responsive-container" style={{ marginRight: '10px', display: 'flex', width: '300px', alignItems: 'center' }}>
+            <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
+          </div>
           <select
             value={filters.category?.Name}
             onChange={handleFilterChange}
             name="category"
-            style={{ width: '300px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+            style={{
+              width: '300px',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              backgroundColor: '#fafafa',
+              fontFamily: 'Arial, sans-serif',
+              fontSize: '16px',
+              color: '#333',
+              appearance: 'none',
+              outline: 'none',
+              transition: 'border-color 0.3s ease, background-color 0.3s ease',
+            }}
           >
-            <option value="All" >Sort Categories</option>
-            <option value="All" style={{ color: 'black', fontSize: '16px', fontFamily: 'Arial', backgroundColor: '#f0f0f0' }}>All Categories</option>
+            <option
+              value="All"
+              style={{
+                fontSize: '16px',
+                fontFamily: 'Arial, sans-serif',
+                color: '#555',
+                backgroundColor: '#fafafa',
+                padding: '10px',
+              }}
+            >
+              Sort Categories
+            </option>
+
+            <option
+              value="All"
+              style={{
+                fontSize: '16px',
+                fontFamily: 'Arial, sans-serif',
+                color: '#333',
+                backgroundColor: '#f7f7f7',
+                padding: '10px',
+              }}
+            >
+              All Categories
+            </option>
 
             {
-            // Remove duplicates by creating a Set from the categories and mapping them
-            [...new Set(selectableCategories?.map((category) => category?.category))].map((category) => (
-                <option key={category} value={category}>
+              [...new Set(selectableCategories?.map((category) => category?.category))].map((category) => (
+                <option
+                  key={category}
+                  value={category}
+                  style={{
+                    fontSize: '16px',
+                    fontFamily: 'Arial, sans-serif',
+                    color: '#333',
+                    backgroundColor: '#fafafa',
+                    padding: '10px',
+                    transition: 'background-color 0.3s ease, color 0.3s ease',
+                  }}
+                >
                   {category}
                 </option>
               ))
             }
-
           </select>
         </div>
+
 
      </div>
 
 
     <div className="transaction-table">
       <h3 className="table-title">Transaction Overview</h3>
-      <div style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f2f2f2', fontWeight: 'bold' }}>
-      Total Amount: {totalAmount.toLocaleString()}
-    </div>
+      <div style={{ width: '100%',marginBottom: '5px', backgroundColor: '#ccc', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Total Amount on the left */}
+        <div style={{marginLeft: '20px'}}>
+          Total Amount: {totalAmount.toLocaleString()}
+        </div>
+        
+        {/* Delete All Selected button on the right */}
+        <button
+          onClick={handleDeleteAll}
+          className="text-red-500 hover:text-red-700"
+          style={{
+            padding: '8px 15px',
+            backgroundColor: '#f2b9b9',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Delete All Selected
+        </button>
+      </div>
+
+      
+
       <table className="table">
         <thead>
           <tr>
@@ -623,7 +779,15 @@ return (
           <th style={{ backgroundColor: "#b9f2d9" }}>Payment Method</th>
           <th style={{ backgroundColor: "#b9d1f2" }}>Recorded By</th>
           <th style={{ backgroundColor: "#f2b9b9" }}>Date</th>
-          <th style={{ backgroundColor: "#f2d1b9" }}>Action</th>
+          <th style={{ backgroundColor: "#f2d1b9" }}>
+            Action
+            <input
+              type="checkbox"
+              checked={selectedTransactions.length === transactionData.length}
+              onChange={handleSelectAllChange}
+              style={{marginLeft: '10px'}}
+            />
+          </th>
           </tr>
         </thead>
         <tbody>
@@ -651,11 +815,16 @@ return (
                           <FaEdit />
                         </button>
                         <button
-                          onClick={() => handleDelete(transaction._id)}
+                          onClick={() => showHandleDelete(transaction._id)}
                           className="text-red-500 hover:text-red-700"
                         >
                           <FaTrash />
                         </button>
+                        <input
+                          type="checkbox"
+                          checked={selectedTransactions.includes(transaction._id)}
+                          onChange={() => handleCheckboxChange(transaction._id)}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -1044,6 +1213,67 @@ return (
       </div>
 
       )}
+
+     {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent background
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: '1000',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '10px',
+              width: '300px',
+              textAlign: 'center',
+            }}
+          >
+            <h3>Are you sure you want to delete this transaction?</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              {/* Yes Button */}
+              <button
+                onClick={handleDelete}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'red',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                Yes
+              </button>
+
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'gray',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
   </div>
 );
 
@@ -1061,6 +1291,21 @@ style.innerHTML = `
 }
 .select-cat {
   max-width: 20%
+}
+
+.filter-section-nnnnn {
+/* Media query for small screens (max-width 768px) */
+  @media (max-width: 768px) {
+    .filter-section-nnnnn {
+      display: block !important; /* Stack elements vertically */
+    }
+
+    .responsive-container, select {
+      width: 100% !important;
+      margin-left: 20px !important;
+      margin-bottom: 10px;
+    }
+  }
 }
 
 
