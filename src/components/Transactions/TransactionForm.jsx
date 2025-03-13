@@ -610,7 +610,7 @@ const CreateTransaction = () => {
 return (
   <div>
     {/* Button to open the modal */}
-    <div className='create-transaction-btn-container'>
+    {/* <div className='create-transaction-btn-container'>
       <button
         onClick={() => setShowModal(true)}
         className="create-transaction-btn"
@@ -637,7 +637,78 @@ return (
         </div>
       </div>
       
+    </div> */}
+    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '20px', margin: '50px 0' }}>
+  {/* Create new Transaction Button */}
+  <button
+    onClick={() => setShowModal(true)}
+    style={{
+      padding: '40px 20px',
+      backgroundColor: '#4CAF50',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      marginLeft: '3.5%',
+      whiteSpace: 'nowrap',
+      // fontWeight: 'bold',
+      fontSize: '20px',
+    }}
+  >
+    Create new Transaction
+  </button>
+
+  <div>
+    <button
+      onClick={() => document.getElementById('excel-upload').click()}
+      style={{
+        padding: '10px 20px',
+        backgroundColor: '#003366',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        marginTop: '1%',
+      }}
+    >
+      Import Transactions (Excel)
+    </button>
+    <input
+      type="file"
+      id="excel-upload"
+      style={{
+        display: 'none',
+      }}
+      accept=".xlsx, .xls"
+      onChange={handleExcelUpload}
+    />
+    
+    <div style={{ fontSize: '14px', color: '#333', marginTop: '8px' }}>
+      {fileName ? `Selected file: ${fileName}` : ''}
     </div>
+    
+    <div style={{ marginTop: '8px' }}>
+      <button
+        className="example-btn"
+        onClick={handleDownload}
+        style={{
+          padding: '5px',
+          backgroundColor: '#f0ad4e',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          textDecoration: 'underline',
+          marginLeft: '2px',
+        }}
+      >
+        Click here to Download Example File Format
+      </button>
+    </div>
+  </div>
+</div>
+
 
     <div className='alert-message-container'>
       {isError && (
