@@ -216,17 +216,18 @@ const UpdateIncomeBudget = () => {
     if (!row.code || row.code.length === undefined) {
       return {
         backgroundColor: invalidCodeColor,
-        color: "#fff", // White text color for better contrast
+        color: "#fff",
       };
     }
 
-    if (row.code && row.code.length === 1) {
+    if (row.code && !row.rate && row.code !== 'tt' && row.code !== 'st') {
       return {
         backgroundColor: categoryRowColor,
         fontSize: "12px",
         fontWeight: "bold",
       };
     }
+
 
     return {};
   };
@@ -252,7 +253,8 @@ const UpdateIncomeBudget = () => {
     if (updatedData[rowIndex].amount && updatedProgress !== "") {
       updatedData[rowIndex].currentAmount = 
         parseFloat(updatedProgress) === 0 
-          ? (updatedData[rowIndex].amount * updatedProgress)
+          // ? (updatedData[rowIndex].amount * updatedProgress)
+          ? 0
           : calculateAmountDue(updatedData[rowIndex].amount, updatedProgress);
     } else {
       updatedData[rowIndex].currentAmount = "";
@@ -328,7 +330,7 @@ const UpdateIncomeBudget = () => {
 
   const calculateAmountDue = (amount, progress) => {
     if (!amount || !progress) return ""; // If amount or progress is missing, return empty
-    return (amount * (100 - progress)) / 100;
+    return (amount * progress) / 100;
   };
 
   const getCellStyle = (row, columnKey) => {

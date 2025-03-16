@@ -6,6 +6,8 @@ import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
 import ProjectSelection from "../Category/AddProject";
+import Chart from 'chart.js/auto'; // Ensure Chart.js is imported
+import ChartDataLabels from 'chartjs-plugin-datalabels'; 
 
 const token = getUserFromStorage();
 ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale); // Register CategoryScale here
@@ -14,7 +16,7 @@ const TransactionOverview = () => {
   const [transactions, setTransactions] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
-  const [expandedCategory, setExpandedCategory] = useState(null); // State for expanding category
+  const [expandedCategory, setExpandedCategory] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -128,6 +130,22 @@ const TransactionOverview = () => {
         font: { size: 18, weight: "bold" },
         padding: { top: 10, bottom: 30 },
       },
+
+      datalabels: {
+        display: true,
+        anchor: 'center', 
+        align: 'center',
+        font: {
+          // weight: 'bold',
+          fontStyle: 'italic',
+          size: 14,
+        },
+        rotation: -10,
+        color: 'black',
+        formatter: (value) => {
+          return value.toLocaleString();
+        },
+    },
     },
     cutout: "70%",
   };
@@ -147,46 +165,141 @@ const TransactionOverview = () => {
   const aggregatedData = Object.values(aggregateCategoryData(transactions));
 
   // Data structure for the Bar chart (after aggregation)
-  const barData = {
-    labels: aggregatedData.map(item => item.category),
-    datasets: [
-      {
-        label: "Income",
-        data: aggregatedData.map(item => item.incomeAmount),
-        backgroundColor: "#36A2EB",
-      },
-      {
-        label: "Expense",
-        data: aggregatedData.map(item => item.expenseAmount),
-        backgroundColor: "#FF6384",
-      },
-    ],
-  };
+  // const barData = {
+  //   labels: aggregatedData.map(item => item.category),
+  //   datasets: [
+  //     {
+  //       label: "Income",
+  //       data: aggregatedData.map(item => item.incomeAmount),
+  //       backgroundColor: "#36A2EB",
+  //     },
+  //     {
+  //       label: "Expense",
+  //       data: aggregatedData.map(item => item.expenseAmount),
+  //       backgroundColor: "#FF6384",
+  //     },
+  //   ],
+  // };
 
-  const barOptions = {
-    maintainAspectRatio: false,
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      title: {
-        display: true,
-        text: "Income vs Expense per Category",
-        font: { size: 18, weight: "bold" },
-      },
-    },
-    scales: {
-      x: {
-        type: "category",  // Ensure 'category' scale is used
-      },
-      y: {
-        type: "linear",  // Ensure 'linear' scale is used for y-axis
-        beginAtZero: true,
-      },
-    },
-  };
+  // const barOptions = {
+  //   maintainAspectRatio: false,
+  //   responsive: true,
+  //   plugins: {
+  //     legend: {
+  //       position: "top",
+  //     },
+  //     title: {
+  //       display: true,
+  //       text: "Income vs Expense per Category",
+  //       font: { size: 18, weight: "bold" },
+  //     },
+  //   },
+  //   scales: {
+  //     x: {
+  //       type: "category",  // Ensure 'category' scale is used
+  //     },
+  //     y: {
+  //       type: "linear",  // Ensure 'linear' scale is used for y-axis
+  //       beginAtZero: true,
+  //     },
+  //   },
+  // };
 
+  // const barOptions = {
+  //   maintainAspectRatio: false,
+  //   responsive: true,
+  //   plugins: {
+  //     legend: {
+  //       position: "top",
+  //     },
+  //     title: {
+  //       display: true,
+  //       text: "Income vs Expense per Category",
+  //       font: { size: 18, weight: "bold" },
+  //     },
+  //     tooltip: {
+  //       enabled: true, // Enable tooltips
+  //       mode: 'index', // Show data for all datasets at once (if multiple datasets are used)
+  //       intersect: false, // Don't require hover on the element itself (allow tooltip for all items at once)
+  //       // callbacks: {
+  //       //   // Custom callback to format the tooltip if necessary
+  //       //   label: function(tooltipItem) {
+  //       //     let label = tooltipItem.dataset.label || '';
+  //       //     label += ': ' + tooltipItem.raw; // Show the value
+  //       //     return label;
+  //       //   },
+  //       // },
+  //     },
+  //   },
+  //   scales: {
+  //     x: {
+  //       type: "category",  // Ensure 'category' scale is used
+  //     },
+  //     y: {
+  //       type: "linear",  // Ensure 'linear' scale is used for y-axis
+  //       beginAtZero: true,
+  //     },
+  //   },
+  // };
+
+Chart.register(ChartDataLabels); // Register the plugin
+
+const barData = {
+  labels: aggregatedData.map(item => item.category),
+  datasets: [
+    {
+      label: "Income",
+      data: aggregatedData.map(item => item.incomeAmount),
+      backgroundColor: "#36A2EB",
+    },
+    {
+      label: "Expense",
+      data: aggregatedData.map(item => item.expenseAmount),
+      backgroundColor: "#FF6384",
+    },
+  ],
+};
+
+const barOptions = {
+  maintainAspectRatio: false,
+  responsive: true,
+  plugins: {
+    legend: {
+      position: "top",
+    },
+    title: {
+      display: true,
+      text: "Income vs Expense per Category",
+      font: { size: 18, weight: "bold" },
+    },
+    datalabels: {
+      display: true,
+      anchor: 'start', 
+      align: 'end',
+      font: {
+        // weight: 'bold',
+        fontStyle: 'italic',
+        size: 11,
+      },
+      rotation: -85,
+      color: 'black',
+      formatter: (value) => {
+        return value.toLocaleString();
+      },
+  },
+  },
+  scales: {
+    x: {
+      type: "category",  // Ensure 'category' scale is used
+    },
+    y: {
+      type: "linear",  // Ensure 'linear' scale is used for y-axis
+      beginAtZero: true,
+    },
+  },
+};
+
+  
   const formatNumber = (number) => new Intl.NumberFormat().format(isNaN(number) ? 0 : number);
 
   // Styles restored
