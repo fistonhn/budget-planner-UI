@@ -26,7 +26,8 @@ const ProjectBOQ = () => {
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectInfo, setProjectInfo] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [email, setEmail] = useState("");
   const [accessRight, setAccessRight] = useState("");
@@ -106,6 +107,7 @@ const ProjectBOQ = () => {
       setSuccessMessage("Project created successfully");
       resetForm();
       fetchProjects();
+      
 
       setTimeout(() => {
         setIsSuccess(false); 
@@ -198,27 +200,82 @@ const ProjectBOQ = () => {
       console.error("There was an error creating the transaction:", error);
     }
   };
+
+  const showHandleDelete = (project) => {
+    setShowDeleteModal(true);
+    setProjectInfo(project);
+  }
+
+  const handleDelete = async () => {
+      try {
+        // console.log(`vvvvv ${BASE_URL}/projects/delete/${projectInfo._id}`);
+        setIsLoading(true);
+  
+        await axios.delete(`${BASE_URL}/projects/delete/${projectInfo._id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        setShowDeleteModal(false);
+        setIsLoading(false);
+        setIsSuccess(true);
+        setSuccessMessage("Project deleted successfully");
+        localStorage.removeItem("projectName");
+        fetchProjects();
+  
+  
+        setTimeout(() => {
+          setIsSuccess(false); 
+       }, 3000);
+  
+  
+        fetchTransactionData();
+      } catch (error) {
+        setIsLoading(false);
+        setErrorMessage(error.response.data.message);
+        setIsError(true);
+  
+        setTimeout(() => {
+          setIsError(false);
+  
+        }, 5000);
+      }
+    }; 
   
 
   return (
-    <div className="p-4 md:p-6 w-full max-w-6xl mx-auto">
+    <div style={{
+      padding: '1rem',
+      '@media (min-width: 768px)': { padding: '1.5rem' },
+      maxWidth: '88%',
+      minWidth: '30%',
+      marginLeft: '3%',
+      marginRight: '5%'
+    }}>    
       {/* Buttons Section */}
+
       <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4">
         <button
-          className={`px-4 py-2 rounded-lg text-white bg-[#003366]`}
+          className={`px-4 py-2 rounded-lg text-white ${
+            activeTab === "projects" ? "bg-blue-600" : "bg-[#003366]"
+          }`}
           onClick={() => setActiveTab("projects")}
         >
           Projects
         </button>
         <button
-          className={`px-4 py-2 rounded-lg text-white bg-[#003366]`}
+          className={`px-4 py-2 rounded-lg text-white ${
+            activeTab === "importBOQ" ? "bg-blue-600" : "bg-[#003366]"
+          }`}
           onClick={() => setActiveTab("importBOQ")}
         >
           Import Contract BOQ
         </button>
       </div>
 
-      <div className='alert-message-container'>
+
+      <div className='alert-message-container' style={{zIndex: '100000'}}>
         {isError && (
             <AlertMessage
               type="error"
@@ -239,7 +296,7 @@ const ProjectBOQ = () => {
         {activeTab === "projects" && (
           <div className="p-4">
             <div className="flex flex-wrap justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Available Projects</h2>
+              <h2 className="text-xl font-bold">All Projects</h2>
               <button
                 className="px-4 py-2 bg-[#003366] text-white rounded-lg"
                 onClick={() => setIsModalOpen(true)}
@@ -267,18 +324,24 @@ const ProjectBOQ = () => {
                   ?.map((project) => (
                     <tr key={project._id} className="bg-gray-50 hover:bg-gray-100">
                       <td className="px-4 py-2 border border-gray-300">{project.projectCode}</td>
-                      <td className="px-4 py-2 border border-gray-300">{project.name}</td>
+                      <td className="px-4 py-2 border border-gray-300">{project.name.charAt(0).toUpperCase() + project.name.slice(1)}</td>
                       <td className="px-4 py-2 border border-gray-300">{project.location}</td>
                       <td className="px-4 py-2 border border-gray-300">{formatDate(project.startDate)}</td>
                       <td className="px-4 py-2 border border-gray-300">{formatDate(project.endDate)}</td>
-                      <td className="px-4 py-2 border border-gray-300">{project.manager}</td>
-                      <td className="px-4 py-2 border border-gray-300">{project.description || "No description"}</td>
-                      <td className="px-4 py-2 border border-gray-300">
+                      <td className="px-4 py-2 border border-gray-300">{project?.manager?.charAt(0).toUpperCase() + project?.manager?.slice(1)}</td>
+                      <td className="px-4 py-2 border border-gray-300">{project?.description?.charAt(0).toUpperCase() + project?.description?.slice(1) || "No description"}</td>
+                      <td className="px-4 py-2 border border-gray-300" style={{display: 'flex', justifyContent: 'space-between'}}>
                         <button
                           onClick={() => handleAssign(project._id, project.name)}
                           style={{fontSize: '12px', whiteSpace: 'nowrap' ,backgroundColor: '#3d8c40', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px', marginRight: '5px'}}
                         >
                           Assign To user
+                        </button>
+                        <button
+                          onClick={() => showHandleDelete(project)}
+                          style={{fontSize: '12px', whiteSpace: 'nowrap' ,backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px'}}
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>
@@ -291,7 +354,7 @@ const ProjectBOQ = () => {
           </div>
         )}
 
-{showModal && (
+      {showModal && (
         <div
           style={{
             position: "fixed",
@@ -318,6 +381,7 @@ const ProjectBOQ = () => {
 
             <form onSubmit={handleSubmitAssigns}>
               <div style={{ marginBottom: "10px" }}>
+                
                 <label
                   htmlFor="email"
                   style={{ display: "block", fontWeight: "bold", marginBottom: "5px" }}
@@ -330,6 +394,7 @@ const ProjectBOQ = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  placeholder="Enter user email"
                   style={{
                     width: "100%",
                     padding: "8px",
@@ -365,6 +430,13 @@ const ProjectBOQ = () => {
                   <option value="Write">Write</option>
                 </select>
               </div>
+
+              <label
+                  htmlFor="email"
+                  style={{ display: "block", fontStyle: 'italic', marginBottom: "5px", fontSize: '14px', textAlign: 'center', margin: '30px 0px' }}
+                >
+                  ⚠️ If new User assigned the project, His/Her password will be the same as the user email.
+                </label>
 
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <button
@@ -519,6 +591,70 @@ const ProjectBOQ = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+       {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent background
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: '1000',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '10px',
+              width: '300px',
+              textAlign: 'center',
+            }}
+          >
+          <h3 style={{margin: '10px', fontSize: '18px', textAlign: 'center'}}>
+            {`Are you sure you want to delete this Project (`}
+            <span className="text-2xl font-bold text-blue-600">{projectInfo.name.charAt(0).toUpperCase() + projectInfo.name.slice(1)}</span>
+            {`) ?`}
+          </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              {/* Yes Button */}
+              <button
+                onClick={handleDelete}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'red',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                Yes
+              </button>
+
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'gray',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                No
+              </button>
+            </div>
           </div>
         </div>
       )}

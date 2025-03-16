@@ -429,11 +429,12 @@ const CreateTransaction = () => {
       setTimeout(() => {
         setIsSuccess(false);
       }, 3000);
-    } catch (err) {
-      console.log('err', err)
+    } 
+    catch (error) {
+      console.log('error', error)
+      setIsError(true);
       setIsLoading(false);
       setErrorMessage(error.response.data.message);
-      setIsError(true);
 
       setTimeout(() => {
         setIsError(false);
