@@ -1,26 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from "chart.js";
+import { Doughnut, Bar } from "react-chartjs-2";
 import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
 import ProjectSelection from "../Category/AddProject";
 
 const token = getUserFromStorage();
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale); // Register CategoryScale here
 
 const TransactionOverview = () => {
   const [transactions, setTransactions] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
-  const [expandedCategory, setExpandedCategory] = useState(null); 
-
+  const [expandedCategory, setExpandedCategory] = useState(null); // State for expanding category
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Refs to store chart instances
+  const doughnutChartRef = useRef(null);
+  const barChartRef = useRef(null);
 
   useEffect(() => {
     fetchProjects();
@@ -33,57 +36,46 @@ const TransactionOverview = () => {
   }, [selectedProject]);
 
   const fetchProjects = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const projectsData = prjResponse?.data?.myProjects || [];
       const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
       setProjects(sortedProjects);
-      
-      const selectedProjectName = localStorage.getItem("projectName") || null
-
-      if(selectedProjectName === null) { 
+      const selectedProjectName = localStorage.getItem("projectName") || null;
+      if (selectedProjectName === null) { 
         setSelectedProject(sortedProjects[0]?.name);
-
       } else {
-        setSelectedProject(selectedProjectName)
+        setSelectedProject(selectedProjectName);
       }
-
-      setIsLoading(false)
+      setIsLoading(false);
       setIsSuccess(true);
       setSuccessMessage("Project Report Displayed successfully.");
-
       setTimeout(() => {
         setIsSuccess(false);
-        setSuccessMessage("")
+        setSuccessMessage("");
       }, 3000);
-
     } catch (err) {
       console.error("Error fetching Projects", err);
     }
   };
 
   const fetchReportData = async () => {
-    setIsLoading(true)
-
+    setIsLoading(true);
     try {
       const selectedProjectName = { projectName: selectedProject };
       const response = await axios.post(`${BASE_URL}/report/listsByProject`, selectedProjectName, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       setTransactions(response.data.myReports);
-
-      setIsLoading(false)
+      setIsLoading(false);
       setIsSuccess(true);
       setSuccessMessage("Project Report Displayed successfully.");
-
       setTimeout(() => {
         setIsSuccess(false);
-        setSuccessMessage("")
+        setSuccessMessage("");
       }, 3000);
     } catch (error) {
       console.error("Error fetching transactions data:", error);
@@ -96,8 +88,6 @@ const TransactionOverview = () => {
   const totals = transactions?.length
     ? transactions?.reduce(
         (acc, transaction) => {
-          console.log('transaction', transactions)
-
           if (transaction?.incomeAmount) acc.income += transaction?.incomeAmount;
           else if (transaction?.expenseAmount) acc.expense += transaction?.expenseAmount;
           return acc;
@@ -106,8 +96,8 @@ const TransactionOverview = () => {
       )
     : { income: 0, expense: 0 };
 
-  // Data structure for the chart
-  const data = {
+  // Data structure for the Doughnut chart
+  const doughnutData = {
     labels: ["Income", "Expense"],
     datasets: [
       {
@@ -121,7 +111,7 @@ const TransactionOverview = () => {
     ],
   };
 
-  const options = {
+  const doughnutOptions = {
     maintainAspectRatio: false,
     plugins: {
       legend: {
@@ -142,7 +132,97 @@ const TransactionOverview = () => {
     cutout: "70%",
   };
 
-  // Process data to remove duplicated categories and sum both incomeAmount and expenseAmount
+  // Aggregate data to avoid duplicate category names
+  const aggregateCategoryData = (transactions) => {
+    return transactions?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))?.reduce((acc, item) => {
+      if (!acc[item.category]) {
+        acc[item.category] = { category: item.category, incomeAmount: 0, expenseAmount: 0 };
+      }
+      acc[item.category].incomeAmount += item.incomeAmount || 0;
+      acc[item.category].expenseAmount += item.expenseAmount || 0;
+      return acc;
+    }, {});
+  };
+
+  const aggregatedData = Object.values(aggregateCategoryData(transactions));
+
+  // Data structure for the Bar chart (after aggregation)
+  const barData = {
+    labels: aggregatedData.map(item => item.category),
+    datasets: [
+      {
+        label: "Income",
+        data: aggregatedData.map(item => item.incomeAmount),
+        backgroundColor: "#36A2EB",
+      },
+      {
+        label: "Expense",
+        data: aggregatedData.map(item => item.expenseAmount),
+        backgroundColor: "#FF6384",
+      },
+    ],
+  };
+
+  const barOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Income vs Expense per Category",
+        font: { size: 18, weight: "bold" },
+      },
+    },
+    scales: {
+      x: {
+        type: "category",  // Ensure 'category' scale is used
+      },
+      y: {
+        type: "linear",  // Ensure 'linear' scale is used for y-axis
+        beginAtZero: true,
+      },
+    },
+  };
+
+  const formatNumber = (number) => new Intl.NumberFormat().format(isNaN(number) ? 0 : number);
+
+  // Styles restored
+  const cellStyle = {
+    padding: "8px",
+    border: "1px solid black",
+    textAlign: "center",
+  };
+  const negativeStyle = {
+    color: "red",
+  };
+
+  const incomeHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#cce0ff",
+  };
+
+  const expenseHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#a8c6e8",
+  };
+
+  const profitHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#ffcccc",
+  };
+
+  // Function to handle row expansion (toggle)
+  const handleRowClick = (category) => {
+    // Toggle expanded category
+    // setExpandedCategory(prevCategory => (prevCategory === category ? null : category));
+    console.log('expandedCategory', expandedCategory);
+        setExpandedCategory(expandedCategory === category ? null : category);
+
+  };
+
   const processData = (data) => {
     const aggregatedData = data.reduce((acc, item) => {
       if (!acc[item.category]) {
@@ -171,66 +251,44 @@ const TransactionOverview = () => {
     })).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
   };
 
-  // Format number
-  const formatNumber = (number) => new Intl.NumberFormat().format(isNaN(number) ? 0 : number);
-
-  // Table row click for expanding details
-  const handleRowClick = (category) => {
-    setExpandedCategory(expandedCategory === category ? null : category);
-  };
-
   const processedData = processData(transactions);
 
-  const cellStyle = {
-    border: "1px solid black",
-    padding: "8px",
-    textAlign: "left",
-  };
-  const profitHeaderStyle = {
-    ...cellStyle,
-    backgroundColor: "#ffcccc", // Light red (for profit)
-  };
-
-  const negativeStyle = {
-    color: "red",
-  };
-  const incomeHeaderStyle = {
-    ...cellStyle,
-    backgroundColor: "#cce0ff", // Light blue (for income)
-  };
-
-  const expenseHeaderStyle = {
-      ...cellStyle,
-      backgroundColor: "#a8c6e8", // Lighter blue (for expense)
-  };
-
   return (
-    <div>      
-      <div className='alert-message-container'>
+    <div>
+      <div className="alert-message-container">
         {isError && (
           <AlertMessage
-              type="error"
-              message={errorMessage}
-          />                                                                                       
+            type="error"
+            message={errorMessage}
+          />
         )}
         {isSuccess && (
           <AlertMessage
-              type="success"
-              message={successMessage}
+            type="success"
+            message={successMessage}
           />
         )}
         {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
       </div>
-      {/* Chart */}
+      {/* Chart Block */}
       <div className="my-8 p-6 bg-white rounded-lg shadow-xl border border-gray-200">
         <h1 className="text-2xl font-bold text-center mb-6">Transaction Overview</h1>
-        <div style={{ height: "350px" }}>
-          <Doughnut data={data} options={options} />
-        </div>
-        <div className="responsive-container">
-          <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
+
+        <div className="flex flex-wrap justify-between" style={{ height: "350px", marginRight: '130px' }}>
+          {/* Doughnut Chart */}
+          <div className="w-full sm:w-[48%]" style={{ marginTop: '20px' }}>
+            <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
+          </div>
+          {/* Bar Chart */}
+          <div className="w-full sm:w-[48%]" style={{ marginLeft: '20px', marginTop: '20px' }}>
+            <Bar ref={barChartRef} data={barData} options={barOptions} />
+          </div>
         </div>
 
+        
+        <div style={{width: '30%', display: 'flex', justifyContent: 'center', marginTop: '20px', marginLeft: '9%'}}>
+          <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
+        </div>
       </div>
 
       {/* Table */}
@@ -240,15 +298,14 @@ const TransactionOverview = () => {
             <tr>
               <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>ID</th>
               <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>Categories</th>
-              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Income</th>
-              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Contract</th>
-              <th style={{ padding: "8px", backgroundColor: "#a8c6e8", border: "1px solid black" }}>Expense</th>
-              <th style={{ padding: "8px", backgroundColor: "#ffcccc", border: "1px solid black" }}>Profit</th>
+              <th style={incomeHeaderStyle}>Income</th>
+              <th style={incomeHeaderStyle}>Contract</th>
+              <th style={expenseHeaderStyle}>Expense</th>
+              <th style={profitHeaderStyle}>Profit</th>
             </tr>
           </thead>
           <tbody>
             {processedData.map((item, index) => {
-              // Generate the letter for the current row
               const letter = String.fromCharCode(65 + (index % 26));
 
               return (
@@ -259,17 +316,19 @@ const TransactionOverview = () => {
                     <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
                     <td style={incomeHeaderStyle}>{formatNumber(item.amount)}</td>
                     <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
-                    <td style={{ ...profitHeaderStyle, ...(item.profit < 0 ? negativeStyle : {}) }}>
-                      {formatNumber(item.profit)}
+                    <td style={profitHeaderStyle}>
+                      {item?.incomeAmount - item?.expenseAmount > 0
+                        ? "+" + formatNumber(item?.incomeAmount - item?.expenseAmount)
+                        : formatNumber(item?.incomeAmount - item?.expenseAmount)}
                     </td>
                   </tr>
+                  
 
-                  {/* Render expanded descriptions */}
+
                   {expandedCategory === item.category &&
                     item.descriptions
                       ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                       ?.map((descItem, descIndex) => {
-                        // Generate the description's letter-number identifier
                         const descriptionLabel = `${letter}${descIndex + 1}`;
 
                         return (
@@ -340,15 +399,13 @@ const TransactionOverview = () => {
                                 fontSize: "12px",
                                 fontStyle: "italic",
                                 color: "gray",
-                                ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) -
-                                  (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0
+                                ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0
                                   ? negativeStyle
                                   : {}),
                               }}
                             >
                               {formatNumber(
-                                (descItem.incomeAmount ? descItem.incomeAmount : 0) -
-                                  (descItem.expenseAmount ? descItem.expenseAmount : 0)
+                                (descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)
                               )}
                             </td>
                           </tr>
@@ -358,81 +415,10 @@ const TransactionOverview = () => {
               );
             })}
           </tbody>
-
-          {/* Totals Row */}
-          <tfoot>
-            <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
-              <td style={{ padding: "8px", border: "1px solid black", textAlign: 'center' }} colSpan="2">Total</td>
-              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff" }}>
-                {formatNumber(
-                  processedData.reduce((acc, item) => acc + item.incomeAmount, 0)
-                )}
-              </td>
-              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff", }}>
-                {formatNumber(
-                  processedData.reduce((acc, item) => acc + item.amount, 0)
-                )}
-              </td>
-              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#a8c6e8", }}>
-                {formatNumber(
-                  processedData.reduce((acc, item) => acc + item.expenseAmount, 0)
-                )}
-              </td>
-              <td style={{ padding: "8px", border: "1px solid black", ...profitHeaderStyle, ...((processedData.reduce((acc, item) => acc + item.profit, 0)) < 0 ? negativeStyle : {}) }}>
-                {formatNumber(
-                  processedData.reduce((acc, item) => acc + item.profit, 0)
-                )}
-              </td>
-            </tr>
-          </tfoot>
-
         </table>
       </div>
-      <style jsx>{`
-        .responsive-container {
-          width: 30%;
-          margin-bottom: -40px;
-          margin-top: -85px;
-          margin-left: 9%;
-          margin-right: auto;
-          max-width: 1200px;
-          display: flex;
-          justify-content: center;
-          padding: 0 10px;
-        }
-
-        @media (max-width: 1024px) {
-          .responsive-container {
-            width: 50%;
-            margin-left: 25%;
-            margin-bottom: 5px;
-            margin-top: 5px;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .responsive-container {
-            width: 80%;
-            margin-left: 10%;
-            margin-bottom: 5px;
-            margin-top: 5px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .responsive-container {
-            width: 90%;
-            margin-left: 5%;
-            margin-bottom: 5px;
-            margin-top: 5px;
-          }
-        }
-      `}</style>
     </div>
-    
   );
 };
-
-
 
 export default TransactionOverview;

@@ -1,597 +1,418 @@
-import React, { useState, useEffect } from "react";
-import ProjectSelection from "../Category/AddProject";
-
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from "chart.js";
+import { Doughnut, Bar } from "react-chartjs-2";
 import { BASE_URL } from "../../utils/url";
 import AlertMessage from "../Alert/AlertMessage";
 import { getUserFromStorage } from "../../utils/getUserFromStorage";
+import ProjectSelection from "../Category/AddProject";
 
-const UpdateIncomeBudget = () => {
-  const [data, setData] = useState([]);
+const token = getUserFromStorage();
+ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale); // Register CategoryScale here
+
+const TransactionOverview = () => {
+  const [transactions, setTransactions] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-
+  const [expandedCategory, setExpandedCategory] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [category, setCategory] = useState(null);
-
   const [isSuccess, setIsSuccess] = useState(false);
-  const [columns] = useState([
-    { Header: "Code", accessor: "code" },
-    { Header: "Description", accessor: "description" },
-    { Header: "Quantity", accessor: "quantity" },
-    { Header: "Unit", accessor: "unit" },
-    { Header: "Rate", accessor: "rate" },
-    { Header: "Amount", accessor: "amount" },
-    { Header: "Progress %", accessor: "progress" },
-    { Header: "Amount Due to date", accessor: "currentAmount" },
-    { Header: "Categories", accessor: "category" },
-    { Header: "Action", accessor: "action" },
 
-  ]);
-
-  const headerColors = {
-    code: "#ffcccc", // Soft Red
-    description: "#ccffcc", // Soft Green
-    quantity: "#ffebcc", // Soft Orange
-    unit: "#e6e6fa", // Lavender
-    rate: "#ffff99", // Light Yellow
-    amount: "#ffb3e6", // Soft Pink
-    progress: "#99ccff", // Light Blue
-    category: "#ffcc99", // Light Peach
-    currentAmount: "#c2f0c2", // Light Mint
-  };
-
-  const categoryRowColor = "#d3d3d3";
-  const invalidCodeColor = "#003366";
-  const token = getUserFromStorage();
-  const selectedProjectName = localStorage.getItem("projectName") || null
-  const Button = ({ onClick, label, isLoading, isDisabled, className }) => {
-    return (
-      <button
-        onClick={onClick}
-        disabled={isDisabled || isLoading}
-        className={`btn ${className} ${isLoading ? "loading" : ""}`}
-      >
-        {isLoading ? "Loading..." : label}
-      </button>
-    );
-  };
+  // Refs to store chart instances
+  const doughnutChartRef = useRef(null);
+  const barChartRef = useRef(null);
 
   useEffect(() => {
     fetchProjects();
-    fetchCategories();  
-    displayRandomProject();
   }, []);
 
   useEffect(() => {
-      if (selectedProject) {
-        displayRandomProject();
-      }
-    }, [selectedProject]);
+    if (selectedProject) {
+      fetchReportData();
+    }
+  }, [selectedProject]);
 
   const fetchProjects = async () => {
+    setIsLoading(true);
     try {
-      const response = await axios.get(`${BASE_URL}/projects/lists`, {
+      const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setProjects(response?.data?.myProjects);
+      const projectsData = prjResponse?.data?.myProjects || [];
+      const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      setProjects(sortedProjects);
+      const selectedProjectName = localStorage.getItem("projectName") || null;
+      if (selectedProjectName === null) { 
+        setSelectedProject(sortedProjects[0]?.name);
+      } else {
+        setSelectedProject(selectedProjectName);
+      }
+      setIsLoading(false);
+      setIsSuccess(true);
+      setSuccessMessage("Project Report Displayed successfully.");
+      setTimeout(() => {
+        setIsSuccess(false);
+        setSuccessMessage("");
+      }, 3000);
     } catch (err) {
       console.error("Error fetching Projects", err);
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchReportData = async () => {
+    setIsLoading(true);
     try {
-      const response = await axios.get(`${BASE_URL}/categories/lists`, {
+      const selectedProjectName = { projectName: selectedProject };
+      const response = await axios.post(`${BASE_URL}/report/listsByProject`, selectedProjectName, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCategories(response?.data);
-
-      console.log('jjhjjj', response?.data)
-    } catch (err) {
-      console.error("Error fetching Categories", err);
-    }
-  };
-
-  const displayRandomProject = async () => {
-    try {
-      setIsLoading(true);
-      setData([])
-
-      const prjResponse = await axios.get(`${BASE_URL}/projects/lists`, {
-        headers: { Authorization: `Bearer ${token}` }, });
-
-        const projectsData = prjResponse?.data?.myProjects || [];
-        const sortedProjects = projectsData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-        let projectData = null
-
-        if(selectedProjectName === null) { 
-          setSelectedProject(sortedProjects[0]?.name);
-           projectData = { projectName: sortedProjects[0]?.name }
-
-        } else {
-          setSelectedProject(selectedProjectName)
-          projectData = { projectName: selectedProjectName };
-        }
-
-      const response = await axios.post(
-        `${BASE_URL}/budget/listsByProject`,
-        projectData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      setTransactions(response.data.myReports);
       setIsLoading(false);
-      setData(response?.data?.budgetDataByProj);
- 
-      if (response?.data?.budgetDataByProj.length > 0) {
-        setIsSuccess(true);
-        setSuccessMessage("Project Budget listed successfully");
-
-        setTimeout(() => {
-          setIsSuccess(false);
-          setSuccessMessage(" ");
-        }, 3000);
-      } else {
-        setErrorMessage("Selected Project Doesn't have Income Budget");
-        setIsError(true);
-
-        setTimeout(() => {
-          setIsError(false);
-        }, 3000);
-      }
-
-    } catch (err) {
-      console.log("Error fetching Projects", err);
-    }
-  };
-
-  
-  const handleSave = async (rowIndex) => {
-    const row = data[rowIndex];
-    const updatedData = {
-      id: row._id,
-      progress: row.progress,
-      category: row.category,
-      currentAmount: row.currentAmount,
-      description: row.description,
-      projectName: row.projectName,
-    };
-    console.log("updatedData", updatedData)
-    setIsLoading(true);  
-    try {
-      const response = await axios.post(
-        `${BASE_URL}/budget/updateIncomes`,
-        updatedData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setIsLoading(false);
-      console.log("updatedDataupdatedData", response?.status)
-
-
-      if (response?.status === 200) {
-        setSuccessMessage("Progress Updated successfully.");
-        setIsSuccess(true);
-        displayRandomProject(row.projectName)
-  
-        setTimeout(() => {
-          setIsSuccess(false);
-        }, 3000);
-      }
-    } catch (err) {
-      setIsLoading(false);
-      console.error("Error updating data", err);
-      setErrorMessage("Error updating data");
-      setIsError(true);
+      setIsSuccess(true);
+      setSuccessMessage("Project Report Displayed successfully.");
       setTimeout(() => {
-        setIsError(false);
+        setIsSuccess(false);
+        setSuccessMessage("");
       }, 3000);
+    } catch (error) {
+      console.error("Error fetching transactions data:", error);
+      setIsError(true);
+      setIsLoading(false);
     }
   };
 
-  const handleCategoryChange = (e, rowIndex) => {
-    const updatedData = [...data];
-    updatedData[rowIndex].category = e.target.value; // Update the category for the current row
-    setData(updatedData); // Update the data state
+  // Calculate totals for income and expense
+  const totals = transactions?.length
+    ? transactions?.reduce(
+        (acc, transaction) => {
+          if (transaction?.incomeAmount) acc.income += transaction?.incomeAmount;
+          else if (transaction?.expenseAmount) acc.expense += transaction?.expenseAmount;
+          return acc;
+        },
+        { income: 0, expense: 0 }
+      )
+    : { income: 0, expense: 0 };
+
+  // Data structure for the Doughnut chart
+  const doughnutData = {
+    labels: ["Income", "Expense"],
+    datasets: [
+      {
+        label: "Transactions",
+        data: [totals?.income, totals?.expense],
+        backgroundColor: ["#36A2EB", "#FF6384"],
+        borderColor: ["#36A2EB", "#FF6384"],
+        borderWidth: 1,
+        hoverOffset: 4,
+      },
+    ],
   };
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    console.log("e.target.value", e.target.value);
-
-    const filtered = categories?.filter((category) =>
-      category.Name.toLowerCase().includes(e.target.value.toLowerCase())
-    );
-    setCategories(filtered);
+  const doughnutOptions = {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          padding: 25,
+          boxWidth: 12,
+          font: { size: 14 },
+        },
+      },
+      title: {
+        display: true,
+        text: "Income vs Expense",
+        font: { size: 18, weight: "bold" },
+        padding: { top: 10, bottom: 30 },
+      },
+    },
+    cutout: "70%",
   };
 
-  const getRowStyle = (row) => {
-    if (!row.code || row.code.length === undefined) {
-      return {
-        backgroundColor: invalidCodeColor,
-        color: "#fff", // White text color for better contrast
-      };
-    }
-
-    if (row.code && row.code.length === 1) {
-      return {
-        backgroundColor: categoryRowColor,
-        fontSize: "12px",
-        fontWeight: "bold",
-      };
-    }
-
-    return {};
+  // Data structure for the Bar chart
+  const barData = {
+    labels: transactions?.map(transaction => transaction.category),
+    datasets: [
+      {
+        label: "Income",
+        data: transactions?.map(transaction => transaction.incomeAmount || 0),
+        backgroundColor: "#36A2EB",
+      },
+      {
+        label: "Expense",
+        data: transactions?.map(transaction => transaction.expenseAmount || 0),
+        backgroundColor: "#FF6384",
+      },
+    ],
   };
 
-  const isEmptyRow = (row) => {
-    return Object.values(row).every((value) => value === null || value === "");
+  const barOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Income vs Expense per Category",
+        font: { size: 18, weight: "bold" },
+      },
+    },
+    scales: {
+      x: {
+        type: "category",  // Ensure 'category' scale is used
+      },
+      y: {
+        type: "linear",  // Ensure 'linear' scale is used for y-axis
+        beginAtZero: true,
+      },
+    },
   };
 
-  const formatWithCommas = (value) => {
-    if (value === undefined || value === null || value === "") {
-      return "";
-    }
-    const number = parseFloat(value);
-    return isNaN(number) ? value : number.toLocaleString();
-  };
-
-  const handleProgressChange = (e, rowIndex) => {
-    const updatedData = [...data];
-    const updatedProgress = e.target.value === "" ? "" : e.target.value;
-    updatedData[rowIndex].progress = updatedProgress;
-  
-    // Recalculate Amount Due to date after Progress change
-    if (updatedData[rowIndex].amount && updatedProgress !== "") {
-      updatedData[rowIndex].currentAmount = 
-        parseFloat(updatedProgress) === 0 
-          ? 0 
-          : calculateAmountDue(updatedData[rowIndex].amount, updatedProgress);
-    } else {
-      updatedData[rowIndex].currentAmount = "";
-    }
-  
-    setData(updatedData); // Update the data state
-  };
-  
-
-  const calculateAmountDue = (amount, progress) => {
-    if (!amount || !progress) return ""; // If amount or progress is missing, return empty
-    return (amount * (100 - progress)) / 100;
-  };
-
-  const getCellStyle = (row, columnKey) => {
-    if (row.code === "st") {
-      if (columnKey === "code" || columnKey === "description") {
-        return {
-          fontSize: "13px",
-          fontWeight: "bold",
-          fontStyle: "italic",
-          textDecoration: "underline",
+  const processData = (data) => {
+    const aggregatedData = data.reduce((acc, item) => {
+      if (!acc[item.category]) {
+        acc[item.category] = {
+          category: item.category,
+          incomeAmount: 0,
+          amount: item.amount,
+          expenseAmount: 0,
+          updatedAt: item.updatedAt,
+          descriptions: [],
         };
       }
-    }
+      acc[item.category].incomeAmount += item.incomeAmount || 0;
+      acc[item.category].expenseAmount += item.expenseAmount || 0;
+      acc[item.category].descriptions.push(item);
 
-    if (row.code === "tt") {
-      if (columnKey === "code" || columnKey === "description" || columnKey === "amount") {
-        return {
-          fontWeight: "bold",
-        };
+      if (new Date(item.updatedAt) > new Date(acc[item.category].updatedAt)) {
+        acc[item.category].updatedAt = item.updatedAt;
       }
-    }
+      return acc;
+    }, {});
 
-    // For editable progress cells
-    if (columnKey === "progress") {
-      return {
-        border: "1px solid #ccc", // Border inside the cell
-        color: "black", // Text color
-        padding: "4px",
-        textAlign: "center",
-        width: "100%",
-      };
-    }
-
-    return {};
+    return Object.values(aggregatedData).map((item) => ({
+      ...item,
+      profit: item.incomeAmount - item.expenseAmount,
+    })).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
   };
 
-  const getEditableCellStyle = (columnKey, row) => {
-    if (columnKey === "progress") {
-      if (row.amount) {
-        return {
-          border: "1px solid #ccc",
-          color: "black",
-          padding: "4px",
-          textAlign: "center",
-          backgroundColor: "white",
-        };
-      } 
-    }
+  const formatNumber = (number) => new Intl.NumberFormat().format(isNaN(number) ? 0 : number);
 
-    return {};
+  const handleRowClick = (category) => {
+    setExpandedCategory(expandedCategory === category ? null : category);
+  };
+
+  const processedData = processData(transactions);
+
+  const cellStyle = {
+    border: "1px solid black",
+    padding: "8px",
+    textAlign: "left",
+  };
+
+  const profitHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#ffcccc", // Light red (for profit)
+  };
+
+  const negativeStyle = {
+    color: "red",
+  };
+
+  const incomeHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#cce0ff", // Light blue (for income)
+  };
+
+  const expenseHeaderStyle = {
+    ...cellStyle,
+    backgroundColor: "#a8c6e8", // Lighter blue (for expense)
   };
 
   return (
-    <div className="table-container">
-      <div className='alert-message-container'>
+    <div>
+      <div className="alert-message-container">
         {isError && (
-            <AlertMessage
-                type="error"
-                message={errorMessage}
-            />                                                                                       
+          <AlertMessage
+            type="error"
+            message={errorMessage}
+          />
         )}
         {isSuccess && (
-            <AlertMessage
-                type="success"
-                message={successMessage}
-            />
+          <AlertMessage
+            type="success"
+            message={successMessage}
+          />
         )}
         {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
       </div>
-      <div style={{width: '30%'}} >
-        <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
+      {/* Chart Block */}
+      <div className="my-8 p-6 bg-white rounded-lg shadow-xl border border-gray-200">
+        <h1 className="text-2xl font-bold text-center mb-6">Transaction Overview</h1>
+        <div className="flex justify-between" style={{ height: "350px", marginRight: '130px' }}>
+          {/* Doughnut Chart */}
+          <div className="w-[48%]">
+            <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
+          </div>
+          {/* Bar Chart */}
+          <div className="w-[48%]">
+            <Bar ref={barChartRef} data={barData} options={barOptions} />
+          </div>
+        </div>
+        <div style={{width: '30%', display: 'flex', justifyContent: 'center', marginTop: '20px', marginLeft: '9%'}}>
+          <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
+        </div>
       </div>
 
-      <div className="table-scroll-container">
-        <table className="styled-table">
+      {/* Table */}
+      <div style={{ marginTop: "20px", maxWidth: "1200px", marginLeft: "auto", marginRight: 'auto', marginBottom: '50px' }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th colSpan={10} className="summary-row">
-                <div className="row-title">
-                  <strong>Activate Income Table</strong>
-                </div>
-              </th>
-            </tr>
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={column.accessor}
-                  style={{
-                    backgroundColor: headerColors[column.accessor],
-                    width:
-                      column.accessor === "quantity" ? "70px" :
-                      column.accessor === "category" ? "250px" :
-                      column.accessor === "description" ? "300px" : 
-                      column.accessor === "code" ? "60px" : 
-                      column.accessor === "unit" ? "80px" : "150px",
-                  }}
-                >
-                  {column.Header}
-                </th>
-              ))}
+              <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>ID</th>
+              <th style={{ padding: "8px", backgroundColor: "#d1e7e0", border: "1px solid black" }}>Categories</th>
+              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Income</th>
+              <th style={{ padding: "8px", backgroundColor: "#cce0ff", border: "1px solid black" }}>Contract</th>
+              <th style={{ padding: "8px", backgroundColor: "#a8c6e8", border: "1px solid black" }}>Expense</th>
+              <th style={{ padding: "8px", backgroundColor: "#ffcccc", border: "1px solid black" }}>Profit</th>
             </tr>
           </thead>
           <tbody>
-            {data?.map((row, rowIndex) => (
-              isEmptyRow(row) ? (
-                <tr key={rowIndex}>
-                  <td colSpan={6} style={{ textAlign: "center", backgroundColor: "#f9f9f9", height: "30px" }}>
-                    No Data Available
-                  </td>
-                </tr>
-              ) : (
-                <tr key={rowIndex} style={getRowStyle(row)}>
-                  {columns.map((column) => (
-                    <td key={column.accessor}>
-                      {column.accessor === "amount" ||
-                      column.accessor === "rate" ||
-                      column.accessor === "currentAmount" ? (
-                        <span style={getCellStyle(row, column.accessor)}>
-                          {formatWithCommas(row[column.accessor])}
-                        </span>
-                      ) : column.accessor === "progress" ? (
-                        <input
-                          type="number"
-                          value={row[column.accessor] !== null && row[column.accessor] !== "" ? row[column.accessor] : ""}
-                          onChange={(e) => handleProgressChange(e, rowIndex)}
-                          style={getEditableCellStyle(column.accessor, row)}
-                          disabled={!row.amount}
-                        />
-                      ) : column.accessor === "category" ? (
-                        row.amount ? (
-                          <select
-                            value={row[column.accessor] || ""}
-                            onChange={(e) => handleCategoryChange(e, rowIndex)}
-                            style={{
-                              ...getEditableCellStyle(column.accessor, row),
-                              width: "100%",  // Fixed width
-                            }}
-                          >
-                        
-                            {categories?.map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.Name}
-                              </option>
-                            ))}
-                          </select>
-                          // <div className="dropdown-container">
-                          //   <div
-                          //     className="dropdown-toggle"
-                          //     onClick={() => setDropdownOpen(!dropdownOpen)}
-                          //   >
-                          //     {category ? category : "select category"}
-                          //   </div>
+            {processedData.map((item, index) => {
+              const letter = String.fromCharCode(65 + (index % 26));
 
-                          //   {dropdownOpen && (
-                          //     <div className="dropdown-menu">                            
-                          //       {/* Search Field */}
-                          //       <input
-                          //         type="text"
-                          //         value={searchTerm}
-                          //         onChange={handleSearch}
-                          //         placeholder="Search categories..."
-                          //         className="dropdown-search"
-                          //       />
-                          //       {categories?.length === 0 && (
-                          //         <div className="no-results">No results found</div>
-                          //       )}
-                          //       {categories
-                          //         ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                          //         ?.map((category, index) => (
-                          //           <div
-                          //             key={index}
-                          //             className="dropdown-item"
-                          //             onClick={() => handleSelectCategory(category.Name)}
-                          //           >
-                          //             {category.Name?.charAt(0)?.toUpperCase() + category?.Name?.slice(1)}
-                          //           </div>
-                          //         ))}
-                          //     </div>
-                          //   )}
-                          // </div>
-                        ) : (
-                          <span>--</span>
-                        )
-                      ) : column.accessor === "code" || column.accessor === "description" ? (
-                        <span style={getCellStyle(row, column.accessor)}>
-                          {row[column.accessor]}
-                        </span>
-                      ) : column.accessor === "action" ? (  // Action column with Save button
-                        row.amount ? (  // Only show Save button if there is an amount
-                          <button
-                            onClick={() => handleSave(rowIndex)}
-                            style={{
-                              padding: "5px 10px",
-                              fontSize: "12px",
-                              backgroundColor: "#4CAF50",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Save
-                          </button>
-                        ) : null // No button if no amount
-                      ) : (
-                        <span style={{ width: "100%" }}>{row[column.accessor] || ""}</span>
-                      )}
+              return (
+                <React.Fragment key={index}>
+                  <tr onClick={() => handleRowClick(item.category)} style={{ cursor: "pointer" }}>
+                    <td style={cellStyle}>{letter}</td>
+                    <td style={cellStyle}>  {item.category.charAt(0).toUpperCase() + item.category.slice(1)}</td>
+                    <td style={incomeHeaderStyle}>{formatNumber(item.incomeAmount)}</td>
+                    <td style={incomeHeaderStyle}>{formatNumber(item.amount)}</td>
+                    <td style={expenseHeaderStyle}>{formatNumber(item.expenseAmount)}</td>
+                    <td style={{ ...profitHeaderStyle, ...(item.profit < 0 ? negativeStyle : {}) }}>
+                      {formatNumber(item.profit)}
                     </td>
-                  ))}
-                </tr>
-              )
-            ))}
+                  </tr>
+
+                  {/* Render expanded descriptions */}
+                  {expandedCategory === item.category &&
+                    item.descriptions
+                      ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                      ?.map((descItem, descIndex) => {
+                        const descriptionLabel = `${letter}${descIndex + 1}`;
+
+                        return (
+                          <tr key={`${index}-desc-${descIndex}`}>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {descriptionLabel}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {descItem.description.charAt(0).toUpperCase() + descItem.description.slice(1)}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#cce0ff",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {formatNumber(descItem.incomeAmount)}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#cce0ff",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {formatNumber(descItem.amount)}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#a8c6e8",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                              }}
+                            >
+                              {formatNumber(descItem.expenseAmount)}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid gray",
+                                backgroundColor: "#ffcccc",
+                                paddingLeft: "30px",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "gray",
+                                ...(((descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)) < 0
+                                  ? negativeStyle
+                                  : {}),
+                              }}
+                            >
+                              {formatNumber(
+                                (descItem.incomeAmount ? descItem.incomeAmount : 0) - (descItem.expenseAmount ? descItem.expenseAmount : 0)
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                </React.Fragment>
+              );
+            })}
           </tbody>
+
+          {/* Totals Row */}
+          <tfoot>
+            <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
+              <td style={{ padding: "8px", border: "1px solid black", textAlign: 'center' }} colSpan="2">Total</td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff" }}>
+                {formatNumber(processedData.reduce((acc, item) => acc + item.incomeAmount, 0))}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#cce0ff" }}>
+                {formatNumber(processedData.reduce((acc, item) => acc + item.amount, 0))}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", backgroundColor: "#a8c6e8" }}>
+                {formatNumber(processedData.reduce((acc, item) => acc + item.expenseAmount, 0))}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid black", ...profitHeaderStyle, ...((processedData.reduce((acc, item) => acc + item.profit, 0)) < 0 ? negativeStyle : {}) }}>
+                {formatNumber(processedData.reduce((acc, item) => acc + item.profit, 0))}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
-
-      <style>
-        {`
-          .table-container {
-            margin: 50px 80px;
-          }
-
-          .table-scroll-container {
-            max-height: 800px;
-            overflow-y: auto;
-          }
-
-          .styled-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-          }
-
-          .row-title {
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-          }
-
-          .styled-table th, .styled-table td {
-            border: 1px solid #ddd;
-            padding: 6px 8px;
-            text-align: left;
-          }
-
-          .styled-table th {
-            font-weight: bold;
-            color: #333;
-            background-color: #f1f1f1;
-            position: sticky;
-            top: 0;
-          }
-
-          .styled-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-          }
-
-          .styled-table tr:hover {
-            background-color: #f1f1f1;
-          }
-
-          .styled-table .summary-row {
-            background-color: #f8f8f8;
-            font-size: 16px;
-          }
-
-
-
-        @media screen and (max-width: 768px) {
-        .table-container {
-            margin: 5px 20px;
-          }
-            .styled-table {
-                font-size: 12px;
-                width: 100%;
-            }
-
-            .styled-table th,
-            .styled-table td {
-                padding: 8px;
-            }
-
-            #project-select {
-                width: 100%;
-                margin-bottom: 10px;
-            }
-
-            .table-scroll-container {
-                overflow-x: auto;
-            }
-
-            .styled-table th,
-            .styled-table td {
-                text-align: left;
-                padding: 8px;
-            }
-            }
-
-            @media screen and (max-width: 480px) {
-            .styled-table {
-                font-size: 10px;
-            }
-
-            .styled-table th,
-            .styled-table td {
-                padding: 5px;
-            }
-
-            .styled-table th {
-                font-size: 12px;
-            }
-
-            #project-select {
-                width: 100%;
-            }
-
-        `}
-      </style>
     </div>
   );
 };
 
-export default UpdateIncomeBudget;
+export default TransactionOverview;

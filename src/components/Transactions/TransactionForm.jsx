@@ -158,8 +158,10 @@ const CreateTransaction = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    console.log('fullSelectedReport', fullSelectedReport)
+
     // Validate all fields
-    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price || !fullSelectedReport) {
+    if (!amount || !category || !date || !selectedProject || !quantity || !unit || !paymentMethod || !price) {
       setError("Please fill all required fields! Including select income field.");
       setTimeout(() => {
         setError('')
@@ -179,7 +181,7 @@ const CreateTransaction = () => {
       price,
       fullSelectedReport,
     };
-    console.log('transactionDatatransactionData', transactionData)
+    // console.log('transactionDatatransactionData', transactionData)
     try {
       setIsLoading(true);
       const res = await axios.post(`${BASE_URL}/transactions/create`, transactionData,
@@ -379,6 +381,7 @@ const CreateTransaction = () => {
     setFileName("");
     setSelectedReportFile('')
     setCategory('')
+    setDescription('')
   };
 
   const saveImportedFileData = async(e) => {
@@ -389,7 +392,7 @@ const CreateTransaction = () => {
       if(!excelFileData || !category) {
 
         setIsError(true);
-        setErrorMessage("Error! Please fill in all fields!");
+        setErrorMessage("Error! both excel file and Category are required!");
 
         setTimeout(() => {
           setIsError(false);
@@ -510,6 +513,8 @@ const CreateTransaction = () => {
     setSelectedReport(e.target.value)
     setFullSelectedReport(report)
     setCategory((report?.incomeReportData?.incomeCategory) ? report?.incomeReportData?.incomeCategory : report.category);
+    setDescription((report?.incomeReportData?.description) ? report?.incomeReportData?.description : report.description);
+
   };
   const handleItemClickFile = (e, report) => {
     setSelectedReportFile(e.target.value)
@@ -608,106 +613,75 @@ const CreateTransaction = () => {
 
 
 return (
-  <div>
-    {/* Button to open the modal */}
-    {/* <div className='create-transaction-btn-container'>
-      <button
-        onClick={() => setShowModal(true)}
-        className="create-transaction-btn"
-      >
-        Create new Transaction
-      </button>
-
-      <div>
-        <label htmlFor="excel-upload" className="import-button-label">
-          Import Transactions (Excel)
-        </label>
-        <input
-          type="file"
-          id="excel-upload"
-          className="import-file-input"
-          accept=".xlsx, .xls"
-          onChange={handleExcelUpload}
-        />
-        <div>
-          <button className="example-btn" onClick={handleDownload}>Click here to Download Example File Format</button>
-        </div>
-        <div className="filename-display">
-          {fileName ? `Selected file: ${fileName}` : "No file selected"}
-        </div>
-      </div>
-      
-    </div> */}
-    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '20px', margin: '50px 0' }}>
-  {/* Create new Transaction Button */}
-  <button
-    onClick={() => setShowModal(true)}
-    style={{
-      padding: '40px 20px',
-      backgroundColor: '#4CAF50',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      marginLeft: '3.5%',
-      whiteSpace: 'nowrap',
-      // fontWeight: 'bold',
-      fontSize: '20px',
-    }}
-  >
-    Create new Transaction
-  </button>
-
-  <div>
+<div>
+  <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '20px', margin: '50px 0' }}>
     <button
-      onClick={() => document.getElementById('excel-upload').click()}
+      onClick={() => setShowModal(true)}
       style={{
-        padding: '10px 20px',
-        backgroundColor: '#003366',
+        padding: '40px 20px',
+        backgroundColor: '#4CAF50',
         color: '#fff',
         border: 'none',
         borderRadius: '4px',
         cursor: 'pointer',
-        marginTop: '1%',
+        marginLeft: '3.5%',
+        whiteSpace: 'nowrap',
+        // fontWeight: 'bold',
+        fontSize: '25px',
       }}
     >
-      Import Transactions (Excel)
+      Create new Transaction
     </button>
-    <input
-      type="file"
-      id="excel-upload"
-      style={{
-        display: 'none',
-      }}
-      accept=".xlsx, .xls"
-      onChange={handleExcelUpload}
-    />
-    
-    <div style={{ fontSize: '14px', color: '#333', marginTop: '8px' }}>
-      {fileName ? `Selected file: ${fileName}` : ''}
-    </div>
-    
-    <div style={{ marginTop: '8px' }}>
+    <div>
       <button
-        className="example-btn"
-        onClick={handleDownload}
+        onClick={() => document.getElementById('excel-upload').click()}
         style={{
-          padding: '5px',
-          backgroundColor: '#f0ad4e',
+          padding: '10px 20px',
+          backgroundColor: '#003366',
           color: '#fff',
           border: 'none',
           borderRadius: '4px',
           cursor: 'pointer',
-          fontWeight: 'bold',
-          textDecoration: 'underline',
-          marginLeft: '2px',
+          marginTop: '1%',
         }}
       >
-        Click here to Download Example File Format
+        Import Transactions (Excel)
       </button>
+      <input
+        type="file"
+        id="excel-upload"
+        style={{
+          display: 'none',
+        }}
+        accept=".xlsx, .xls"
+        onChange={handleExcelUpload}
+      />
+      
+      <div style={{ fontSize: '14px', color: '#333', marginTop: '8px' }}>
+        {fileName ? `Selected file: ${fileName}` : ''}
+      </div>
+      
+      <div style={{ marginTop: '8px' }}>
+        <button
+          className="example-btn"
+          onClick={handleDownload}
+          style={{
+            padding: '5px',
+            backgroundColor: '#f0ad4e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            textDecoration: 'underline',
+            marginLeft: '2px',
+          }}
+        >
+          Click here to Download Example File Format
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
 
     <div className='alert-message-container'>
@@ -867,15 +841,15 @@ return (
                 ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                 ?.map((transaction, index) => (
                   <tr key={transaction._id} className={index % 2 === 0 ? 'odd-row' : 'even-row'}>
-                    <td>{transaction.projectName}</td>
-                    <td>{transaction.category}</td>
-                    <td>{transaction.description}</td>
+                    <td>{transaction.projectName.charAt(0).toUpperCase() + transaction.projectName.slice(1)}</td>
+                    <td>{transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}</td>
+                    <td>{transaction.description.charAt(0).toUpperCase() + transaction.description.slice(1)}</td>
                     <td>{transaction.quantity}</td>
-                    <td>{transaction.unit}</td>
+                    <td>{transaction.unit.charAt(0).toUpperCase() + transaction.unit.slice(1)}</td>
                     <td>{transaction.price}</td>
                     <td>{transaction.amount}</td>
-                    <td>{transaction.paymentMethod}</td>
-                    <td>{transaction.recordedBy}</td>
+                    <td>{transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1)}</td>
+                    <td>{transaction.recordedBy.charAt(0).toUpperCase() + transaction.recordedBy.slice(1)}</td>
                     <td>{formatDate(transaction.date)}</td>
                     <td> 
                       <div className="flex space-x-3">
@@ -913,13 +887,15 @@ return (
     {showModal && (
       <div className="modal-overlay">
         <div className="modal-content">
-          <h2 className="modal-title">Create Transaction</h2>
+          <h2 style={{ textAlign: 'center', marginBottom: '25px', fontSize: '24px' }}>
+            {switchToEditMode ? 'Update this transaction' : 'Create a new Transaction'}
+          </h2>
           
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="transaction-form">
              <div className="form-group">
-              <label style={{ fontSize: '18px', marginLeft: '20px' }}>Select Income for this Transaction: </label>
+              <label style={{ fontSize: '18px', marginLeft: '20px' }}>What this Transaction is going for ? incomes: → </label>
               <div style={{ fontStyle: 'italic', fontSize: '12px', marginLeft: '20px' }}>If no income, create one from the income tab</div>
              </div>
              
@@ -959,7 +935,7 @@ return (
                     }}
                   />
                 <div
-                  key='{report.idjjjjjjj}'
+                  key='{report.idjj8999jjjjj}'
                   style={{
                     listStyle: 'none',
                     padding: 0,
@@ -970,11 +946,17 @@ return (
                     backgroundColor: '#fff',
                     position: 'absolute',
                     zIndex: 9999,
+                    minWidth: '420px',
+                    maxWidth: '420px',
                   }}
                 >
                   <div style={{marginLeft: '10px', fontStyle: 'italic'}}> All Incomes</div>
                   {filteredReports.length > 0 ? (
                     filteredReports
+                    .filter((value, index, self) => 
+                      index === self.findIndex((t) => (
+                        t.description === value.description
+                      )))
                     ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                     ?.map((report) => (
                       <div
@@ -1030,6 +1012,7 @@ return (
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="form-input"
+                required
               />
             </div>
 
@@ -1166,8 +1149,8 @@ return (
             <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
           </div>
           <div style={{margin: '0px 21px'}}>
-            <label style={{ fontSize: '18px' }}>Select Income for this Transaction: </label>
-            <div style={{ fontStyle: 'italic', fontSize: '12px' }}>If no income, create one from the income tab</div>
+            <label style={{ fontSize: '18px' }}>Select Income (Optional) : </label>
+            <div style={{ fontStyle: 'italic', fontSize: '12px' }}>If no income, create one from the income tab or skip.</div>
           </div>
           <div 
               onClick={() => openIncomeDropdownFile() } 
@@ -1204,6 +1187,10 @@ return (
                   <div style={{marginLeft: '10px', fontStyle: 'italic'}}> All Incomes</div>
                   {filteredReports.length > 0 ? (
                     filteredReports
+                    .filter((value, index, self) => 
+                      index === self.findIndex((t) => (
+                        t.description === value.description
+                      )))
                     ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                     ?.map((report) => (
                       <div
@@ -1221,6 +1208,9 @@ return (
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           color: '#333',
+                          minWidth: '340px',
+                          maxWidth: '340px',
+                          overflowY: 'auto'
                         }}
                         onClick={() => handleItemClickFile({ target: { value: report.description } }, report)}
                         onMouseEnter={(e) => {
