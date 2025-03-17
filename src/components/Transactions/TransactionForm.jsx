@@ -895,13 +895,9 @@ return (
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="transaction-form">
-             <div className="form-group">
+             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '-10px' }}>
               <label style={{ fontSize: '18px', marginLeft: '20px' }}>What this Transaction is going for ? incomes: → </label>
-              <div style={{ fontStyle: 'italic', fontSize: '12px', marginLeft: '20px' }}>If no income, create one from the income tab</div>
              </div>
-             
-                        
-
             <div>
             <div 
               onClick={() => openIncomeDropdown() } 
@@ -910,6 +906,7 @@ return (
                 padding: "6px",
                 cursor: "pointer",
                 backgroundColor: "#fff",
+                marginBottom: "-10px",
               }}
             >
               {selectedReport
@@ -996,94 +993,110 @@ return (
                   )}
                 </div>
                 </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="form-group-categories">
+            <div style={{marginBottom: '-30px'}}>
               <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />       
             </div>
-            <div className="form-group-categories">
+            <div style={{marginBottom: '-30px'}}>
               <CategorySelection category={category} setCategory={setCategory} />
             </div>
-            
 
             <div className="form-group">
-              <label className="form-label">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Quantity</label>
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Unit</label>
-              <input
-                type="text"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Price</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Amount</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Payment Method</label>
-              <input
-                type="text"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Date</label>
+              {/* <label className="form-label">Date</label> */}
               <input
                 type="date"
                 value={date ? (new Date(date)?.toISOString().split('T')[0]) : ''}
                 onChange={(e) => setDate(e.target.value)}
                 className="form-input"
                 required
+                placeholder="Enter Date"
+                style={{padding: '8px', marginBottom: '-10px'}}
+
               />
             </div>
 
-            <div className="form-actions">
+            <div className="form-group">
+              {/* <label className="form-label">Quantity</label> */}
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Quantity"
+                style={{padding: '8px', marginBottom: '-10px'}}
+              />
+            </div>
+
+            <div className="form-group">
+              {/* <label className="form-label">Unit</label> */}
+              <input
+                type="text"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Unit"
+                style={{padding: '8px', marginBottom: '-10px'}}
+              />
+            </div>
+
+            <div className="form-group">
+              {/* <label className="form-label">Price</label> */}
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Price"
+                style={{padding: '8px', marginBottom: '-10px'}}
+              />
+            </div>
+
+            <div className="form-group">
+              {/* <label className="form-label">Amount</label> */}
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Amount"
+                style={{padding: '8px', marginBottom: '-10px'}}
+              />
+            </div>
+
+            <div className="form-group">
+              {/* <label className="form-label">Payment Method</label> */}
+              <input
+                type="text"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Payment Method"
+                style={{padding: '8px', marginBottom: '-10px'}}
+              />
+            </div>
+
+            <div className="form-group">
+              {/* <label className="form-label">Description</label> */}
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="form-input"
+                required
+                placeholder="Enter Description"
+                // style={{padding: '6px', marginBottom: '0px'}}
+              />
+            </div>
+            
+           
+
+            <div className="form-actions" style={{padding: '6px'}}>
               {switchToEditMode ? 
                 <button
                   type="button"

@@ -71,7 +71,8 @@ const TransactionOverview = () => {
       const response = await axios.post(`${BASE_URL}/report/listsByProject`, selectedProjectName, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setTransactions(response.data.myReports);
+      // setTransactions(response.data.myReports);
+      setTransactions(response.data.myReports.filter(report => report.incomeAmount !== 0));
       setIsLoading(false);
       setIsSuccess(true);
       setSuccessMessage("Project Report Displayed successfully.");
@@ -164,84 +165,7 @@ const TransactionOverview = () => {
 
   const aggregatedData = Object.values(aggregateCategoryData(transactions));
 
-  // Data structure for the Bar chart (after aggregation)
-  // const barData = {
-  //   labels: aggregatedData.map(item => item.category),
-  //   datasets: [
-  //     {
-  //       label: "Income",
-  //       data: aggregatedData.map(item => item.incomeAmount),
-  //       backgroundColor: "#36A2EB",
-  //     },
-  //     {
-  //       label: "Expense",
-  //       data: aggregatedData.map(item => item.expenseAmount),
-  //       backgroundColor: "#FF6384",
-  //     },
-  //   ],
-  // };
-
-  // const barOptions = {
-  //   maintainAspectRatio: false,
-  //   responsive: true,
-  //   plugins: {
-  //     legend: {
-  //       position: "top",
-  //     },
-  //     title: {
-  //       display: true,
-  //       text: "Income vs Expense per Category",
-  //       font: { size: 18, weight: "bold" },
-  //     },
-  //   },
-  //   scales: {
-  //     x: {
-  //       type: "category",  // Ensure 'category' scale is used
-  //     },
-  //     y: {
-  //       type: "linear",  // Ensure 'linear' scale is used for y-axis
-  //       beginAtZero: true,
-  //     },
-  //   },
-  // };
-
-  // const barOptions = {
-  //   maintainAspectRatio: false,
-  //   responsive: true,
-  //   plugins: {
-  //     legend: {
-  //       position: "top",
-  //     },
-  //     title: {
-  //       display: true,
-  //       text: "Income vs Expense per Category",
-  //       font: { size: 18, weight: "bold" },
-  //     },
-  //     tooltip: {
-  //       enabled: true, // Enable tooltips
-  //       mode: 'index', // Show data for all datasets at once (if multiple datasets are used)
-  //       intersect: false, // Don't require hover on the element itself (allow tooltip for all items at once)
-  //       // callbacks: {
-  //       //   // Custom callback to format the tooltip if necessary
-  //       //   label: function(tooltipItem) {
-  //       //     let label = tooltipItem.dataset.label || '';
-  //       //     label += ': ' + tooltipItem.raw; // Show the value
-  //       //     return label;
-  //       //   },
-  //       // },
-  //     },
-  //   },
-  //   scales: {
-  //     x: {
-  //       type: "category",  // Ensure 'category' scale is used
-  //     },
-  //     y: {
-  //       type: "linear",  // Ensure 'linear' scale is used for y-axis
-  //       beginAtZero: true,
-  //     },
-  //   },
-  // };
-
+  
 Chart.register(ChartDataLabels); // Register the plugin
 
 const barData = {
@@ -266,6 +190,8 @@ const barOptions = {
   plugins: {
     legend: {
       position: "top",
+      // display: false,
+
     },
     title: {
       display: true,
@@ -290,10 +216,10 @@ const barOptions = {
   },
   scales: {
     x: {
-      type: "category",  // Ensure 'category' scale is used
+      type: "category",
     },
     y: {
-      type: "linear",  // Ensure 'linear' scale is used for y-axis
+      type: "linear",
       beginAtZero: true,
     },
   },
@@ -384,24 +310,38 @@ const barOptions = {
         {isLoading ? <AlertMessage type="loading" message="Loading" /> : null}
       </div>
       {/* Chart Block */}
-      <div className="my-8 p-6 bg-white rounded-lg shadow-xl border border-gray-200">
+      {/* <div >
         <h1 className="text-2xl font-bold text-center mb-6">Transaction Overview</h1>
 
-        <div className="flex flex-wrap justify-between" style={{ height: "350px", marginRight: '130px' }}>
-          {/* Doughnut Chart */}
-          <div className="w-full sm:w-[48%]" style={{ marginTop: '20px' }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", height: "350px", marginRight: "130px" }}>
+          <div style={{ width: "100%", marginTop: "20px", flexBasis: "48%" }}>
             <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
           </div>
-          {/* Bar Chart */}
-          <div className="w-full sm:w-[48%]" style={{ marginLeft: '20px', marginTop: '20px' }}>
+
+          <div style={{ width: "100%", marginLeft: "20px", marginTop: "20px", flexBasis: "48%" }}>
             <Bar ref={barChartRef} data={barData} options={barOptions} />
           </div>
         </div>
+
 
         
         <div style={{width: '30%', display: 'flex', justifyContent: 'center', marginTop: '20px', marginLeft: '9%'}}>
           <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
         </div>
+      </div> */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", height: "350px", marginRight: "130px" }}>
+        <div className="Doughnut-chart-container" style={{marginLeft: '30px', width: "100%", marginTop: "20px", flexBasis: "48%", minWidth: "300px", height: "400px", justifyContent: "center" }}>
+          <Doughnut ref={doughnutChartRef} data={doughnutData} options={doughnutOptions} />
+        </div>
+
+        <div className="bar-chart-container" style={{ width: "100%", marginLeft: "20px", marginTop: "20px", flexBasis: "48%", minWidth: "300px", height: "400px", justifyContent: "center" }}>  
+          <Bar ref={barChartRef} data={barData} options={barOptions} />
+        </div>
+      </div>
+
+
+      <div className="projectName">
+        <ProjectSelection selectedProject={selectedProject} setSelectedProject={setSelectedProject} />
       </div>
 
       {/* Table */}
@@ -530,7 +470,33 @@ const barOptions = {
           </tbody>
         </table>
       </div>
+      <style jsx>{`
+        .projectName {
+          width: 30%;
+          margin-top: 20px;
+          display: flex;
+          justify-content: center;
+          margin-left: 9%;
+          margin-top: 200px;
+        }
+        @media (max-width: 768px) {
+          .projectName {
+            margin-top: 500px;
+          }
+          .doughnut-chart-container {
+            display: none;
+          },
+          .bar-chart-container {
+            width: 100%;
+            height: 400px; /* Increased height for charts */
+            margin-top: 20px;
+            margin-bottom: 500px;
+            display: none
+          }
+        }
+      `}</style>
     </div>
+   
   );
 };
 

@@ -13,6 +13,7 @@ const UpdateIncomeBudget = () => {
   const [selectedProject, setSelectedProject] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [openDropdownRow, setOpenDropdownRow] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -325,6 +326,41 @@ const UpdateIncomeBudget = () => {
       }, 5000);
     }
   };
+
+  const showHandleDelete = (id) => {
+    setShowDeleteModal(true);
+    setTransactionId(id);
+  }
+
+  const handleDeleteIncomeBudget = async () => {
+    try {
+      setIsLoading(true);
+      await axios.delete(`${BASE_URL}/budget/deleteIncomeBudgets/${selectedProject}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setIsLoading(false);
+      setSuccessMessage("Icome budget table deleted successfully!");
+      setIsSuccess(true);
+      displayRandomProject(selectedProject);
+    
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Error updating rows", err);
+      setErrorMessage(err.response.data.message);
+      setIsError(true);
+      setTimeout(() => {
+        setIsError(false);
+        setErrorMessage("");
+
+      }, 5000);
+    }
+  };
   
   
 
@@ -405,6 +441,22 @@ const UpdateIncomeBudget = () => {
       </div>
 
       <div className="auto-save-container" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0px', marginRight: "25px" }}>
+      <button
+          onClick={showHandleDelete}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: '#f44336',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            marginRight: '10px'
+          }}
+        >
+          Delete Income budget
+        </button>
+
         <button
           onClick={handleAutoSave}
           style={{
@@ -700,6 +752,71 @@ const UpdateIncomeBudget = () => {
 
         `}
       </style>
+      {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent background
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '10px',
+              width: '300px',
+              textAlign: 'center',
+            }}
+          >
+          <h3>
+            {`Are you sure you want to delete Income budget table for selected project (`}
+            <span style={{ fontSize: "24px", fontWeight: "bold", color: "red" }}>
+              {selectedProject}
+            </span>
+            {`)?`}
+          </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              {/* Yes Button */}
+              <button
+                onClick={handleDeleteIncomeBudget}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'red',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                Yes
+              </button>
+
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'gray',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '20px',
+                }}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
